@@ -379,3 +379,6 @@ TSWLatexianTemp*
 
 # Makeindex log files
 *.lpz
+
+*-cache.yaml
+.DS_Store
