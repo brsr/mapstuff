@@ -13,8 +13,9 @@ import pyproj
 import matplotlib.pyplot as plt
 import warnings
 import numpy as np
+from abc import ABC
 #import scipy as sp
-#from scipy.optimize import root_scalar#, minimize_scalar
+from scipy.optimize import minimize
 
 #FIRST AXIS IS SPATIAL
 
@@ -53,7 +54,7 @@ def planetobary(xy, tgtpts):
     xy1 = np.concatenate([xy, np.ones(shape)])
     m = np.concatenate([tgtpts, np.ones((1, 3))])
     return np.linalg.solve(m, xy1)
-    
+
 def graticule(spacing1=15, spacing2=1):
     plx = np.linspace(-180, 180, num=360/spacing2 + 1)
     ply = np.linspace(-90, 90, num=180/spacing1 + 1)[1:-1]
@@ -68,7 +69,22 @@ def graticule(spacing1=15, spacing2=1):
     grat.crs = {'init': 'epsg:4326'}
     return grat
 
-class MapProjection():
+def trigivenlengths(sidelengths):
+    x = (sidelengths[0]**2 - sidelengths[1]**2 +
+             sidelengths[2]**2)/(2*sidelengths[0])
+    y = np.sqrt(sidelengths[2]**2 - x**2)
+    tgtpts = np.array([[0, sidelengths[0], x],
+               [0, 0, y]])
+    boffset = np.roll(sidelengths, -1)**2 * (np.roll(sidelengths, 1)**2 +
+              sidelengths**2 - np.roll(sidelengths, -1)**2)
+    boffset = boffset / np.sum(boffset)
+    offset = tgtpts @ boffset
+    tgtpts = tgtpts - offset[:, np.newaxis]
+    return tgtpts
+
+class MapProjection(ABC):
+    """Don't
+    """
     def __init__(self, ctrlpts, geoid):
         """Parameters:
         ctrlpts: 2x3 Numpy array, latitude and longitude of each control point
@@ -78,59 +94,111 @@ class MapProjection():
         self.geoid = geoid
         self.ctrlpts = ctrlpts
         self.settgtpts(ctrlpts)
-        self.orienttgtpts(self.tgtpts)
-    
+        try:
+            self.orienttgtpts(self.tgtpts)
+        except ValueError:
+            pass
+
     def settgtpts(self, ctrlpts):
-        """Creates target triangle with edges the same length as the control 
+        """Creates target triangle with edges the same length as the control
         triangle, having its circumcenter at 0.
         Override this if you want a different triangle."""
         faz, baz, sidelengths = self.geoid.inv(ctrlpts[0], ctrlpts[1],
                                           np.roll(ctrlpts[0], -1),
                                           np.roll(ctrlpts[1], -1))
-        x = (sidelengths[0]**2 - sidelengths[1]**2 +
-             sidelengths[2]**2)/(2*sidelengths[0])
-        y = np.sqrt(sidelengths[2]**2 - x**2)
-        tgtpts = np.array([[0, sidelengths[0], x],
-                   [0, 0, y]])
-        boffset = np.roll(sidelengths, -1)**2 * (np.roll(sidelengths, 1)**2 +
-                  sidelengths**2 - np.roll(sidelengths, -1)**2)
-        boffset = boffset / np.sum(boffset)
-        offset = tgtpts @ boffset
-        tgtpts = tgtpts - offset[:, np.newaxis]
-        self.tgtpts = tgtpts
-        return tgtpts
-    
+        self.tgtpts = trigivenlengths(sidelengths)
+        self.faz = faz
+
     def orienttgtpts(self, tgtpts, N = (0, 90)):
-        """Orient target points so that line from 0 to the projection of N 
+        """Orient target points so that line from 0 to the projection of N
         points up."""
         pN = self.transform(*N)
-        #print(N, pN)
         if np.allclose(pN, [0,0]):
             raise ValueError('projection of N too close to 0')
         angle = np.arctan2(pN[0],pN[1])
         rotm = np.array([[np.cos(angle), -np.sin(angle)],
                          [np.sin(angle),  np.cos(angle)]])
-        #print(rotm.shape, tgtpts.shape)
         result = rotm @ tgtpts
-        #print(result.shape)
         self.tgtpts = result
-    
+
     def transform(self, x, y, **kwargs):
         pts = np.stack([x,y])
         vresult = self.transform_v(pts, **kwargs)
         return vresult[0], vresult[1]
-        
+
     def invtransform(self, x, y, **kwargs):
         pts = np.stack([x,y])
         vresult = self.invtransform_v(pts, **kwargs)
         return vresult[0], vresult[1]
-    
-    def transform_v(self, *args, **kwargs):
-        return NotImplemented
 
-    def invtransform_v(self, *args, **kwargs):
-        return NotImplemented
+    def transform_v(self, pts, **kwargs):
+        rpts = pts.reshape((2,-1)).T
+        result = []
+        for x,y in rpts:
+            result.append(self.transform(x, y, **kwargs))
+        result = np.array(result)
+        return result.T.reshape(pts.shape)
 
+    def invtransform_v(self, pts, **kwargs):
+        rpts = pts.reshape((2,-1)).T
+        result = []
+        for x,y in rpts:
+            result.append(self.invtransform(x, y, **kwargs))
+        result = np.array(result)
+        return result.T.reshape(pts.shape)
+
+#%%
+class ChambTrimetric(MapProjection):
+    def transform(self, x, y, **kwargs):
+        if hasattr(x, '__iter__'):
+            raise TypeError()
+        tgtpts = self.tgtpts
+        f, b, rad = self.geoid.inv(self.ctrlpts[0], self.ctrlpts[1],
+                                   x*np.ones(3), y*np.ones(3))
+        faz = self.faz
+        raz1 = (faz - f) % 360
+        radsq = np.array(rad).squeeze()**2
+        ctgt = tgtpts.T.copy().view(dtype=complex).squeeze()
+        a = np.roll(ctgt, -1) - ctgt
+        b = ctgt
+        l = abs(a)
+        lsq = l**2
+        rsq = radsq/lsq
+        ssq = np.roll(radsq, -1, axis=-1)/lsq
+        x0 = (rsq - ssq + 1)/2
+        y0 = np.sqrt(-rsq**2 + 2*rsq*(ssq + 1) - (ssq - 1)**2)/2
+        y0[np.isnan(y0)] = 0
+        y = np.where(raz1 > 180, -y0, y0)
+        z0 = x0 +1j*y
+        pts = (a * z0 + b)
+        result = np.mean(pts)
+        return result.real, result.imag
+
+    def invtransform(self, *args, **kwargs):
+        return NotImplemented
+#%%
+class LstSqTrimetric(ChambTrimetric):
+    def transform(self, x, y, **kwargs):
+        init = super().transform(x, y)
+        tgtpts = self.tgtpts
+        f, b, rad = self.geoid.inv(self.ctrlpts[0], self.ctrlpts[1],
+                                   x*np.ones(3), y*np.ones(3))
+        def objective(v):
+            x = v[0]
+            y = v[1]
+            a = tgtpts[0]
+            b = tgtpts[1]
+            xma = x-a
+            ymb = y-b
+            dist = np.sqrt(xma**2 + ymb**2)
+            result = np.sum((dist - rad)**2 )
+            f = 1 - rad/dist
+            f[rad <= 0] = 1
+            jac = 2*np.array([np.sum(xma*f), np.sum(ymb*f)])
+            return result, jac
+        res = minimize(objective, init, jac=True,
+                       method = 'BFGS')
+        return res.x
 #%%
 class LinearTrimetric(MapProjection):
     """The linear variation of the Chamberlin Trimetric projection."""
@@ -176,17 +244,16 @@ class LinearTrimetric(MapProjection):
         rpts = pts.reshape((2,-1)).T
         rad = []
         for x,y in rpts:
-            radi = []
-            for a, b in self.ctrlpts.T:
-                radi.append(self.geoid.line_length([x,a],[y,b]))
+            f, b, radi = self.geoid.inv(x*np.ones(3), y*np.ones(3),
+                          self.ctrlpts[0], self.ctrlpts[1])
             rad.append(radi)
         shape = list(pts.shape)
         shape[0] = 3
         rad = np.array(rad).T
         radsq = np.array(rad)**2
         result = self.m @ radsq
-        return result.reshape(pts.shape)        
-        
+        return result.reshape(pts.shape)
+
     def invtransform_v(self, pts, n=20, stop=1E-8):
         if geod.a != geod.b:
             warnings.warn('inverse transform is approximate on ellipsoids')
@@ -215,8 +282,8 @@ class LinearTrimetric(MapProjection):
         c = np.cos(np.sqrt(rsq))
         vector = self.invctrlvector.T @ c
         return vectortolatlon(vector).reshape(pts.shape)
-    
-    def nmforplot(self, pts, n=100):        
+
+    def nmforplot(self, pts, n=100):
         rpts = pts.reshape((2,-1))
         k = self.minv @ rpts/self.radius**2
         hmin = -np.min(k, axis=0)
@@ -241,11 +308,11 @@ class Areal(MapProjection):
         #but it's not likely
         area, _ = geoid.polygon_area_perimeter([0,120,-120],[0,0,0])
         self.totalarea = 2*area
-        self.ctrlarea, _ = geoid.polygon_area_perimeter(ctrlpts[0], 
+        self.ctrlarea, _ = geoid.polygon_area_perimeter(ctrlpts[0],
                                                         ctrlpts[1])
         vctrl = latlontovector(ctrlpts[0], ctrlpts[1])
-        self.ctrlvector = vctrl        
-        a_i = np.sum(np.roll(self.ctrlvector, -1, axis=1) * 
+        self.ctrlvector = vctrl
+        a_i = np.sum(np.roll(self.ctrlvector, -1, axis=1) *
                           np.roll(self.ctrlvector, 1, axis=1), axis=0)
         self.a_i = a_i
         self.b_i = (np.roll(a_i, -1) + np.roll(a_i, 1))/(1+a_i)
@@ -259,18 +326,18 @@ class Areal(MapProjection):
     def tau(self, area):
         """Convert areas on the geoid to tau values for inverse transform"""
         return np.tan(area/self.totalarea*2*np.pi)
-    
+
     def transform(self, x, y):
         bary = self.transform_to_bary(x, y)
         return tuple(barytoplane(bary, self.tgtpts))
-    
+
     def transform_to_bary(self, x, y):
         try:
             areas = []
             for i in range(3):
                 smtri = self.ctrlpts.copy()
                 smtri[:, i] = np.array([x,y])
-                a, _ = self.geoid.polygon_area_perimeter(smtri[0], 
+                a, _ = self.geoid.polygon_area_perimeter(smtri[0],
                                                          smtri[1])
                 areas.append(a)
             areas = np.array(areas)
@@ -280,7 +347,7 @@ class Areal(MapProjection):
 
     def transform_v(self, pts):
         bary = []
-        rpts = pts.reshape((2, -1)).T   
+        rpts = pts.reshape((2, -1)).T
         for x, y in rpts:
             bary.append(self.transform_to_bary(x,y))
         bary = np.array(bary).T
@@ -288,7 +355,7 @@ class Areal(MapProjection):
         shape = list(pts.shape)
         shape[0] = self.tgtpts.shape[0]
         return plane.reshape(shape)
-    
+
     def invtransform_v(self, pts):
         if geod.a != geod.b:
             warnings.warn('inverse transform is approximate on ellipsoids')
@@ -304,12 +371,35 @@ class Areal(MapProjection):
         lon, lat = vectortolatlon(vector).reshape(pts.shape)
         #FIXME maybe transform to/from the authalic latitude here
         return np.stack([lon, lat])#self.authalic(lat)])
-    
+
     def authalic(self, phi, scale = np.pi/180):
         phi = phi * scale
         e=self.geoid.es
         qp = 1 + (1 - e**2)/e * np.arctanh(e)
-        q = ((1 - e**2)*np.sin(phi)/(1 - (e*np.sin(phi))**2) + 
+        q = ((1 - e**2)*np.sin(phi)/(1 - (e*np.sin(phi))**2) +
              (1 - e**2)/e * np.arctanh(e*np.sin(phi)) )
         return np.arcsin(q/qp)/scale
 #%%
+class FullerTri(MapProjection):
+    pass
+
+class FullerQuad(MapProjection):
+    pass
+
+class NSlerpTri(MapProjection):
+    def transform(self, *args, **kwargs):
+        return NotImplemented
+
+class NSlerpQuad(MapProjection):
+    def transform(self, *args, **kwargs):
+        return NotImplemented
+
+class EllipticalQuad(MapProjection):
+    def transform(self, *args, **kwargs):
+        return NotImplemented
+
+class ConformalTri(MapProjection):
+    pass
+
+class EqualAreaTri(MapProjection):
+    pass
