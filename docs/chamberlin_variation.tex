@@ -1,20 +1,22 @@
 \documentclass{amsart}[12pt]
-\usepackage{amsmath, amsfonts, tikz, natbib, array}
+\usepackage{amsmath, amsfonts, tikz, natbib, array, textcomp}
 \oddsidemargin=0in \evensidemargin=0in
 \textwidth=6.6in \textheight=8.7in
 
 \title{A variation on the Chamberlin Trimetric map projection}
 \author{B R S Recht}
-\date{October 2019}
+\date{January 2020}
 
 \begin{document}
 
 \begin{abstract}
    A variation of the Chamberlin Trimetric map projection is presented. This
-   projection amounts to a linear transformation of the distances from a point
-   to three control points, and is simpler and more stable than the Chamberlin
-   projection. It also allows for an inverse projection in the spherical
-   approximation that only requires numerical estimation of one parameter.
+   projection amounts to a linear transformation of the squares of the distances
+   from a given point to three control points. It is significantly simpler to
+   calculate than the Chamberlin projection, and allows for an inverse
+   projection in the spherical approximation that only requires numerical
+   estimation of one parameter. While it introduces slightly more distortion,
+   the difference is small enough to be unnoticeable in most common use cases.
 \end{abstract}
 \maketitle
 
@@ -27,10 +29,10 @@ This derivation will make heavy use of basic linear algebra: refer to a basic
 text on linear algebra, such as \cite{strang}, if anything is
 unfamiliar.
 
-Let $\mathbf v$ be a point on some geodetic datum, and let $\mathbf p = [x, y]$
+Let $\mathbf v$ be a point on some ellipsoid, and let $\mathbf p = [x, y]$
 be a point in the Euclidean plane. Let $d(\mathbf v_a, \mathbf v_b)$ be the
 geodesic distance between the points $\mathbf v_a$ and $\mathbf v_b$ on that
-datum. Let $\|\mathbf p\| = \sqrt{x^2 + y^2}$ be the Euclidean norm of the point
+ellipsoid. Let $\|\mathbf p\| = \sqrt{x^2 + y^2}$ be the Euclidean norm of the point
 $\mathbf p$, such that $\|\mathbf p_a - \mathbf p_b\|$
 is the Euclidean distance between the points $\mathbf p_a$ and $\mathbf p_b$.
 
@@ -180,7 +182,7 @@ undefined or numerically unstable.
 The matrix $\mathbf M$ has a (right) nullspace spanned by the vector $[1,1,1]$.
 In general, this implies this projection is not one-to-one for all possible
 values of $r_i$: in particular, if $r_1 = r_2 = r_3$, then $\mathbf p = [0,0]$.
-Of course, not all values of $r_i$ correspond to actual points on the datum,
+Of course, not all values of $r_i$ correspond to actual points on the ellipsoid,
 but this projection will be observed later on to have overlap for some points
 outside the control triangle, much like the Chamberlin projection.
 (Again, the Chamberlin projection is not commonly used to project the entire
@@ -263,7 +265,9 @@ applications, the solution with smaller $h$, nearer to the control triangle, is
 the desirable one. Let
 $\mathbf A = \left(\mathbf V^\top \mathbf V\right )^{-1}$,
 where $\mathbf A$ is symmetric and positive semi-definite, and
-$f(h) = \mathbf c^\top \mathbf A \mathbf c - 1$. The derivative of $f(h)$ is
+$f(h) = \mathbf c^\top \mathbf A \mathbf c - 1$. See Figure \ref{fig:fh} for a
+plot of $f(h)$ for various points.
+The derivative of $f(h)$ is
 \begin{equation}
   f'(h) = -\mathbf c^\top \mathbf A \mathbf b
 \end{equation}
@@ -282,6 +286,12 @@ of trig functions with square root can be smoothly extended to negative values:
 when $x<0$, $\cos \sqrt{x} = \cosh \sqrt{-x}$
 and $\frac{\sin \sqrt{x}}{\sqrt{x}} = \frac{\sinh \sqrt{-x}}{\sqrt{-x}}$.
 
+\begin{figure}%[!htbp]
+
+\caption{Plot of $f(h)$ for a number of points.}
+\label{fig:fh}
+\end{figure}
+
 Given all the preceding, Newton's method can be applied to solve for $h$.
 Using $h_{\min}$ as an initial guess, a good approximation is achieved for
 points inside the control triangle within only a few iterations. Better initial
@@ -291,28 +301,132 @@ worst at the boundary of the projection. This is expected: at the boundary, the
 function reaches a minimum at the same place as its root, $f(h)=f'(h)=0$, and
 Newton's method converges at a merely linear rate.\cite{burden}
 
- (insert graphs of f(h) here)
-
 \subsection{Without spherical approximation}
-The method for spheres is not extensible to ellipsoidal datums. Geodesic
+The method for spheres is not extensible to ellipsoids. Geodesic
 circles cannot in general be described as the intersection of a plane and a
 surface. Also, we can no longer make the assumption that the Euclidean norm
-$\|\mathbf v\|$ is constant. In general, these sort of problems are harder
-on an ellipsoid than a sphere: calculating geodesic distances, for example,
-typically involves elliptic functions or iterative approximations to such
-functions. Geodesic circles are usually calculated in most software by
-extending a number of lines from a center point and using the endpoints as an
-approximation of the circle. It is not surprising that an analytic form, or
-form with an easy numerical iteration, is not available here.
+$\|\mathbf v\|$ is constant. In general, these sort of problems are harder on
+an ellipsoid than a sphere. Geodesic circles are usually calculated in most
+software by brute force: extending a number of lines from a center point and
+using the endpoints as an approximation of the circle.\cite{idfk}
+It is not surprising that an analytic form,
+or form with an easy numerical iteration, is not available here.
 
 The spherical approximation is reasonably close to an ellipsoidal
-calculation. (insert round-trip analysis here)
+calculation. Figure \ref{fig:roundtrip} demonstrates the results of performing
+the forward transformation with the ellipsoid and then transforming it back
+using the spherical inverse transformation, and then calculating the deviation
+in distance of each point. Within the control triangle, the
+deviation does not exceed 25 kilometers, and within the hemisphere containing the
+control triangle, no more than 60 near the south pole.
+
+\begin{figure}%[!htbp]
+
+\caption{Deviation after round-trip transformation. Units are kilometers.}
+\label{fig:roundtrip}
+\end{figure}
 
 \section{Comparison}
+For comparison purposes, we use a control triangle with vertices at 22°N 0°E,
+22°N 45°E, and 22°S 22.5°E, covering Africa. These coordinates are used for
+demonstrations of the Chamberlin trimetric projection in several places online,
+
+To measure distortion of area and angle, this section uses the areal scale
+factor $s$ and maximum angular deformation $\omega$ as defined in equations
+12-15, 27, and 28 in section 4 of Snyder.\cite{snyder87} Derivatives are
+estimated numerically from a 1-degree grid.
+
+There is not a standard
+measurement of distance distortion for map projections, as map projections that
+do preserve distance can only do so along a finite number of geodesics.
+
+\begin{figure}%[!htbp]
+
+\caption{Areal scale factor $s$. Left is Chamberlin, right is Linear.}
+\label{fig:scale}
+\end{figure}
+
+\begin{figure}%[!htbp]
+
+\caption{Maximum angular deformation $\omega$. Left is Chamberlin, right is Linear.}
+\label{fig:angle}
+\end{figure}
+
+\begin{figure}%[!htbp]
+
+\caption{Distance deviation. Left is Chamberlin, right is Linear.}
+\label{fig:distance}
+\end{figure}
+
+\begin{figure}%[!htbp]
+
+\caption{Distance difference between Chamberlin and Linear.}
+\label{fig:distance}
+\end{figure}
+
+\subsection{Extremal cases}
+With both projections, points within or near the antipodal triangle may be
+projected so that they overlap points near or within the control triangle. Such
+points can be determined by the areal scale factor: points with positive scale
+factor lie in the usual range of the projection, while those with negative scale
+factor will overlap, and those where the scale factor is 0 lie on the boundary.
+The overlap is projected in the reverse orientation.
+
+For the control triangle used in this text, the overlap area is part of the
+Pacific Ocean, as depicted in Figure \ref{fig:antipodal}. For the Chamberlin
+projection, the area is a rounded triangle surrounding the antipodal triangle,
+while for the projection introduced in this text, it is a three-lobed shape
+where two lobes meet at each vertex of the antipodal triangle.
+
+\begin{figure}%[!htbp]
+
+\caption{Antipodal area. Solid line is Linear, dashed line is Chamberlin. The
+small triangles inside the dashed line are numerical error.}
+\label{fig:antipodal}
+\end{figure}
+
+Figure \ref{fig:globeproj} shows the projection of the whole globe, including
+the overlap.
+In the Chamberlin projection, the boundary of the overlap is roughly elliptical.
+The boundary of the projection presented here instead has the form of a
+rounded triangle. In general the islands contained in this area are too small
+to be visible in projection, but the Hawaiian islands, which are near the
+northernmost vertex, do appear. On the Chamberlin projection, they are highly
+distorted. On the other projection, one can see that they are reversed.
+For large control triangles approaching a hemisphere, the
+boundary approaches a triangle with straight edges (not pictured).
+
+\begin{figure}%[!htbp]
+
+\caption{Projection of entire globe. Left: Chamberlin, Right: Linear. }
+\label{fig:globeproj}
+\end{figure}
 
 \section{Conclusion}
+We have to admit that a certain amount of complexity is hidden in the geodetic
+distance $d(\mathbf v_a, \mathbf v_b)$: on an ellipsoid, calculating geodetic
+distance is normally done using Vincenty's formula, which is an iterative
+method, or a descendent.\cite{proj} Of course, the Chamberlin projection
+uses the same calculation, so this is not a strike against the projection
+presented here, but it would be misleading to describe this projection as only
+consisting of a matrix transformation.
 
-spherical inversion is no worse than that in Snyder equal area \cite{snyder92}
+As this projection is a compromise projection that does not perfectly
+preserve area, angle, or distance, it is no large sin in this case to use the
+spherical approximation, in which the geodetic distance is simple trigonometry.
+We also note that the inverse transformation formula on the sphere, which
+uses a Newton's method iteration, is no more complicated than the inverse
+transformation for the Snyder equal area projection. \cite{snyder92}
+
+The form of the forward formula suggests a possible family of projections that
+are simple functions of $r_i$, such as a polynomial function. (elaborate)
+
+The Chamberlin projection is only applicable to surfaces of nonnegative
+curvature (or comparable non-differentiable surfaces), since the circles in the
+target plane must overlap. The projection presented here gives a result for all
+possible values of $r_i$, regardless of the relationship among them due to the
+underlying surface. It follows that this projection can be applied to any
+surface possessing a metric: hyperbolic surfaces, tori, and so on.
 
 \bibliographystyle{plain}
 \bibliography{references}

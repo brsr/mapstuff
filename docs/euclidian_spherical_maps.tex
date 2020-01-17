@@ -845,6 +845,7 @@ f_i &= \frac{c_i}{1 - c_1 - c_2 - c_3} \\
 \end{split}\end{equation}
 
 \subsection{Fuller}
+this entire section needs to be reworked\cite{crider08}\cite{crider09}
 \begin{figure}%[!htbp]
 \begin{tikzpicture}
   \draw (2,2) circle [radius=2];
@@ -879,9 +880,6 @@ sphere, if we make the same construction, the lines do not meet at a point
 triangle. Take a point within that triangle as $\mathbf v$.
 Typically the centroid is used, as it's easy to calculate,
 although we'll discuss another variation.
-
-(If there were any ambiguities, we used the program \texttt{geodesic}
-from Antiprism\cite{antiprism} as a reference implementation.)
 
 In analytic terms, use Slerp to determine the points on each triangle edge.
 Take the cross product of the opposing pairs of points to determine the normal
