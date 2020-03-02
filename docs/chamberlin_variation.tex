@@ -14,19 +14,58 @@
    projection amounts to a linear transformation of the squares of the distances
    from a given point to three control points. It is significantly simpler to
    calculate than the Chamberlin projection, and allows for an inverse
-   projection in the spherical approximation that only requires numerical
+   projection in the spherical approximation which only requires numerical
    estimation of one parameter. While it introduces slightly more distortion,
    the difference is small enough to be unnoticeable in most common use cases.
 \end{abstract}
 \maketitle
 
 \section{Introduction}
+A map projection is a projection from a sphere or an ellipsoid -- such as one
+being used to model the surface of the earth -- to the plane. Map projections
+that preserve angles are called conformal; ones that preserve the relative area
+of shapes may be termed authalic, equal-area, equiareal or equivalent. All map
+projections introduce some form of distortion: no map projection may be both
+conformal and authalic.\cite{snyder87} A compromise map projection is one that
+is neither conformal nor authalic, but seeks to balance different kinds of
+distortion.
 
-\cite{christensen}\cite{snyder87}\cite{snyder89}
+The Chamberlin Trimetric projection is a compromise map projection that achieves
+a balance between distortions in area, angle, and distance. The National
+Geographic Society has published wall and atlas maps using this projection. In
+contrast to most projections, which are analytically specified, the Chamberlin
+projection has a simple geometric construction. Three control points on the
+globe are specified, and a triangle in the plane is constructed having the same
+distances between its vertices as the true distances between the points on the
+globe. True distances from those control points to a given point on the globe
+are measured, and arcs are drawn at those distances from their respective
+points in the plane. The arcs form a small triangle: a point in that triangle
+is chosen as the projection of the original point.\cite{christensen}
+Originally, in the 1950s when manual plotters were used, the exact definition
+of this point was not important, but \cite{christensen} and most modern
+implementations (e.g. \cite{proj}) use the centroid of the triangle formed by
+the points where each pair of circles intersect. Thus, the Chamberlin
+projection is a form of triangulation: it is also a cousin of the
+two-point equidistant projection.\cite{snyder89}
+
+The geometric nature of this construction result in a somewhat involved
+algorithmic form. As commented on in \cite{christensen}, there are special
+cases to handle when the given point lies at a control point, or on an edge of
+the triangle with vertices at the control points. This also makes analysis of
+the projection somewhat more difficult, although numerical approximation of the
+distortion can be performed.
+
+In this text, we demonstrate that a slightly more complicated geometric
+construction results in a map projection that is very similar to the
+Chamberlin Trimetric projection but has a much simpler formula. Since the
+projection is a linear function of the square of the distances from the given
+point to the control points, we call it the Linear Trimetric projection. While
+the Linear Trimetric introduces slightly more distortion, the difference is
+small and difficult to notice by eye.
 
 \section{Derivation of forward projection}
 This derivation will make heavy use of basic linear algebra: refer to a basic
-text on linear algebra, such as \cite{strang}, if anything is
+text on linear algebra, such as \cite{strang80}, if anything is
 unfamiliar.
 
 Let $\mathbf v$ be a point on some ellipsoid, and let $\mathbf p = [x, y]$
@@ -49,16 +88,13 @@ false northing and easting can be added later.)
 
 Let $r_i = d(\mathbf v_i, \mathbf v)$ be the geodesic distance from
 $\mathbf v_i$ to $\mathbf v$, but also the radius of a circle that is centered
-at $\mathbf v_i$ and $\mathbf v$ lies on its boundary. The original Chamberlin
+at $\mathbf v_i$ and $\mathbf v$ lies on its boundary. The Chamberlin
 projection draws a circle of radius $r_i$ around each point $\mathbf p_i$,
 forming a small triangle with circular arcs for edges, and chooses a point
-$\mathbf p$ within that small triangle. Originally, in the 1950s when manual
-plotters were used, the exact definition of this point was not important, but Christensen
-\cite{christensen} and most modern implementations (e.g. Proj \cite{proj}) use
-the centroid of the triangle formed by the points where each pair of circles
-intersect. Of course, each pair of circles intersects in (at most) two places,
-so the implementation must take care to choose the point of intersection that
-lies on the small triangle and not the other one.
+$\mathbf p$ as the centroid of that small triangle. Of course, each pair of
+circles intersects in (at most) two places, so the implementation must take
+care to choose the point of intersection that lies on the small triangle and
+not the other one.
 
 \begin{figure}%[!htbp]
 \begin{tikzpicture}
@@ -326,6 +362,58 @@ control triangle, no more than 60 near the south pole.
 \label{fig:roundtrip}
 \end{figure}
 
+\section{Derivation of Jacobians}
+The Jacobian of a projection is the matrix of derivatives
+\begin{equation}
+  \mathbf{J} =
+  \begin{bmatrix}
+    \frac{\partial x}{\partial \lambda} &
+    \frac{\partial x}{\partial \phi} \\
+    \frac{\partial y}{\partial \lambda} &
+    \frac{\partial y}{\partial \phi}
+  \end{bmatrix}
+\end{equation}
+Given the Jacobian $J$, the areal scale factor $s$ and maximum angular deformation
+$\omega$ can be calculated using equations 12-15, 27, and 28 in section 4 of
+\cite{snyder87}.
+
+Determining these derivatives requires some understanding of the differential
+geometry of the ellipsoid. Here we follow chapter 11 of \cite{strang12}.
+Let $e$ be the (first) eccentricity of the ellipsoid, then the second
+eccentricity $e'$ is defined as:
+\begin{equation}
+  e'^2 = \frac{e^2}{1-e^2}
+  %\qquad\qquad \mbox{(1.2)}
+\end{equation}
+There are two radii of curvature, the horizontal radius of curvature $M$ and
+the vertical radius of curvature $N$. On an oblate spheroid, $M \le N$.
+\begin{equation}
+  M = \frac{a\left(1-e^2\right)}{\left(1-e^2 \sin^2 \phi\right)^{\frac{3}{2}}}
+  %\qquad\qquad \mbox{(11.15)}
+\end{equation}
+\begin{equation}
+  N = \frac{a\sqrt{1-e'^2}}{\sqrt{1-e'^2 \cos^2 \phi}}
+  %\qquad \mbox{(unnumbered, between 1.16 and 1.17)}
+\end{equation}
+Finally, the differential equations for the line element $s$ are
+\begin{equation}
+  \frac{d \phi}{d s} = \frac{\cos \alpha}{M}
+  %\qquad\qquad \mbox{(1.63)}
+\end{equation}
+\begin{equation}
+  \frac{d \lambda}{d s} = \frac{\sin \alpha}{N \cos \phi}
+  %\qquad\qquad \mbox{(1.64)}
+\end{equation}
+and $\alpha$ is the azimuth at $\phi, \lambda$. These can obviously be inverted
+to give $\frac{d s}{d \phi}$ and $\frac{d s}{d \lambda}$.
+
+For the Linear Trimetric projection, all we need to continue is the fact that
+$\frac{d s^2}{d \phi} = 2 s \frac{ds}{d \phi}$ (and similarly for $\lambda$).
+
+
+
+It can be shown that if and only if the scale factor $s$ is 0, then the determinant of the Jacobian above is 0.
+
 \section{Comparison}
 For comparison purposes, we use a control triangle with vertices at 22°N 0°E,
 22°N 45°E, and 22°S 22.5°E, covering Africa. These coordinates are used for
@@ -355,12 +443,6 @@ do preserve distance can only do so along a finite number of geodesics.
 \begin{figure}%[!htbp]
 
 \caption{Distance deviation. Left is Chamberlin, right is Linear.}
-\label{fig:distance}
-\end{figure}
-
-\begin{figure}%[!htbp]
-
-\caption{Distance difference between Chamberlin and Linear.}
 \label{fig:distance}
 \end{figure}
 
@@ -427,6 +509,9 @@ target plane must overlap. The projection presented here gives a result for all
 possible values of $r_i$, regardless of the relationship among them due to the
 underlying surface. It follows that this projection can be applied to any
 surface possessing a metric: hyperbolic surfaces, tori, and so on.
+
+\section{Acknowledgements}
+The geographic data in this text comes from Natural Earth.\cite{natearth}
 
 \bibliographystyle{plain}
 \bibliography{references}
