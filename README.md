@@ -3,18 +3,17 @@
 Python implementations of some map projections that don't currently exist in [PROJ](https://github.com/OSGeo/PROJ). Currently under construction and probably not of interest to anyone else yet :)
 
 Depends on:
-* [geopandas](https://github.com/geopandas/geopandas), 
-* [pyproj](https://github.com/pyproj4/pyproj), 
-* [shapely](https://github.com/Toblerity/Shapely), 
+* [geopandas](https://github.com/geopandas/geopandas),
+* [pyproj](https://github.com/pyproj4/pyproj),
+* [shapely](https://github.com/Toblerity/Shapely),
 * Other packages that are required by those packages
 
 Map projections implemented here:
 * [Chamberlin trimetric](https://en.wikipedia.org/wiki/Chamberlin_trimetric_projection) (exists in PROJ, but I wanted to reimplement it for my own edification and comparison)
-* Least-squares trimetric (like Chamberlin but uses a least-squares solution, slow.)
 * Linear trimetric (new, a variation of Chamberlin that's more numerically tractable)
 * Areal (new, an analog of [areal barycentric coordinates](https://en.wikipedia.org/wiki/Barycentric_coordinate_system) in the plane)
 * Fuller's projection (Crider, John E. "Exact Equations for Fuller's Map Projection and Inverse." Cartographica, vol. 43, no. 1, 2008, pp. 67-72. [DOI: 10.3138/carto.43.1.67](https://doi.org/10.3138/carto.43.1.67))
 * Crider's quadrilateral version of the Fuller projection (Crider, John E. "A geodesic map projection for quadrilaterals." Cartography and Geographic Information Science, vol. 36, no. 2, 2009, p. 131+. [DOI: 10.1559/152304009788188781](https://doi.org/10.1559/152304009788188781))
-* Snyder Equal-Area (exists in PROJ, but not in general form. Snyder, John P. "An Equal-Area Map Projection For Polyhedral Globes." Cartographica, vol. 29, no. 1, 1992, pp. 10-21. [DOI: 10.3138/27H7-8K88-4882-1752](https://doi.org/10.3138/27H7-8K88-4882-1752)) (NOT YET IMPLEMENTED)
-* Conformal polygonal (probably some horrible sphere-packing thing, NOT YET IMPLEMENTED)
-* Some inverse-only maps related to Crider's quadrilateral, for grid creation (new)
+* Snyder Equal-Area (exists in PROJ, but not in general form. Snyder, John P. "An Equal-Area Map Projection For Polyhedral Globes." Cartographica, vol. 29, no. 1, 1992, pp. 10-21. [DOI: 10.3138/27H7-8K88-4882-1752](https://doi.org/10.3138/27H7-8K88-4882-1752))
+* Some variations of the above
+* Conformal polygonal (probably some horrible circle-packing thing, to be implemented in the future)
