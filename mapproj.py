@@ -27,6 +27,43 @@ TGTPTS3 = np.eye(3)
 TGTPTS4 = np.array([[0, 1, 1, 0],
                     [0, 0, 1, 1]])
 
+def normalize(vectors, axis=0):
+    """Normalizes vectors in n-space. The zero vector remains the zero vector.
+    Args:
+        vectors: Array of vectors
+        axis: Which axis to take the norm over (by default the first axis, 0)
+    >>> x = np.stack((np.ones(5), np.arange(5)), axis=0)
+    >>> normalize(x)
+    array([[1.        , 0.70710678, 0.4472136 , 0.31622777, 0.24253563],
+           [0.        , 0.70710678, 0.89442719, 0.9486833 , 0.9701425 ]])    
+    """
+    n = np.linalg.norm(vectors, axis=axis, keepdims=True)
+    return np.where(n <= 0, 0, vectors / n)
+
+def complex_to_float2d(arr):
+    """Converts a complex array to a multidimensional float array.
+    >>> x = np.exp(2j*np.pi*np.linspace(0, 1, 5)).round()
+    >>> complex_to_float2d(x.round())
+    array([[ 1.,  0.],
+           [ 0.,  1.],
+           [-1.,  0.],
+           [-0., -1.],
+           [ 1., -0.]])
+    """
+    return arr.view(float).reshape(list(arr.shape) + [-1])
+
+def float2d_to_complex(arr):
+    """Converts a multidimensional float array to a complex array.
+    Input must be a float type, since there is no integer complex type.
+    >>> y = np.arange(8, dtype=float).reshape((-1, 2))
+    >>> float2d_to_complex(y)
+    array([[0.+1.j],
+           [2.+3.j],
+           [4.+5.j],
+           [6.+7.j]])
+    """
+    return arr.view(complex)
+
 def sqrt(x):
     """Real sqrt clipped to 0 for negative values.
 
@@ -96,33 +133,6 @@ def transeach(func, geoms):
         plist.append(shapely.ops.transform(func, geom))
     return geopandas.GeoSeries(plist)
 
-def lltovector(lon, lat, scale=np.pi/180):
-    """Convert longitude and latitude to 3-vector
-
-    >>> ll = np.arange(6).reshape(2,3)*18
-    >>> lltovector(ll[0],ll[1])
-    array([[5.87785252e-01, 2.93892626e-01, 4.95380036e-17],
-           [0.00000000e+00, 9.54915028e-02, 3.59914664e-17],
-           [8.09016994e-01, 9.51056516e-01, 1.00000000e+00]])
-    """
-    x = np.cos(lat*scale)*np.cos(lon*scale)
-    y = np.cos(lat*scale)*np.sin(lon*scale)
-    z = np.sin(lat*scale)
-
-    return np.stack([x, y, z], axis=0)
-
-def vectortoll(vector, scale=180/np.pi):
-    """Convert 3-vector to longitude and latitude
-
-    >>> vectortoll(np.eye(3))
-    array([[ 0., 90.,  0.],
-           [ 0.,  0., 90.]])
-    """
-    #vector = vector/np.linalg.norm(vector, axis=0, keepdims=True)
-    lat = scale*np.arctan2(vector[2], np.sqrt(vector[1]**2 + vector[0]**2))
-    lon = scale*np.arctan2(vector[1], vector[0])
-    return np.stack([lon, lat])
-
 def graticule(spacing1=15, spacing2=1,
               lonrange = [-180, 180], latrange = [-90, 90]):
     """
@@ -186,65 +196,25 @@ def trigivenangles(angles, scale=np.pi/180):
     p2 = [1, 0]
     return np.array([p0, p1, p2]).T
 
-def trigivenlengths(sidelengths):
+def trigivenlengths(sides):
     """Given side lengths, creates the vertices of a triangle with those
     side lengths, and having circumcenter at 0,0.
-    >>> sidelengths=np.array( [3,4,5])
-    >>> np.round(trigivenlengths(sidelengths), decimals=8)
+    >>> sides=np.array( [3,4,5])
+    >>> np.round(trigivenlengths(sides), decimals=8)
     array([[-2.5, -0.7,  2.5],
            [ 0. , -2.4,  0. ]])
     """
     #might be more stable to use law of cotangents, but eh
-    r = np.product(sidelengths)/sqrt(
-            2*np.sum(sidelengths**2*np.roll(sidelengths,1)**2)
-            -np.sum(sidelengths**4))
-    s1 = sidelengths
-    s2 = np.roll(sidelengths, -1)
-    s3 = np.roll(sidelengths, 1)
+    r = np.product(sides)/sqrt(
+            2*np.sum(sides**2*np.roll(sides,1)**2)
+            -np.sum(sides**4))
+    s1 = sides
+    s2 = np.roll(sides, -1)
+    s3 = np.roll(sides, 1)
     cosangle = (s2**2 + s3**2 - s1**2)/ (2*s2*s3)
     angles = np.arccos(cosangle)
     return r*trigivenangles(np.roll(angles, -1), scale=1)
 #%%
-# def authalic_lat(phi, geod, scale = np.pi/180):
-#     """Convert geodetic latitude to authalic
-#     """
-#     phi = phi * scale
-#     e   = np.sqrt(geod.es)
-#     qp  = 1 + (1 - e**2)/e * np.arctanh(e)
-#     q   = ((1 - e**2)*np.sin(phi)/(1 - (e*np.sin(phi))**2) +
-#            (1 - e**2)/e * np.arctanh(e*np.sin(phi)) )
-#     return np.arcsin(q/qp)/scale
-
-# def gerp(v1, v2, t, geod):
-#     """Geodetic interpolation"""
-#     f, b, r = geod.inv(v1[0], v1[1], v2[0], v2[1])
-#     lon, lat, b = geod.fwd(v1[0], v1[1], f, r*t)
-#     return lon, lat
-
-# def invgerp(v1, v2, vt, geod):
-#     """Inverse geodetic interpolation"""
-#     f, b, r = geod.inv(v1[0], v1[1], v2[0], v2[1])
-#     f, b, rt = geod.inv(v1[0], v1[1], vt[0], vt[1])
-#     return rt/r
-
-# def gintersect(a0, a1, b0, b1, geod, initial=None):
-#     """Find point of intersection of geodesic from a0 to a1 and
-#     from b0 to b1
-#     """
-#     def objective(t):
-#         pt = gerp(a0, a1, t, geod=geod)
-#         area, _ = geod.polygon_area_perimeter([b0[0], b1[0], pt[0]],
-#                                               [b0[1], b1[1], pt[1]])
-#         return area
-#     if initial is None:
-#         x0 = 1
-#     else:
-#         x0 = invgerp(a0, a1, initial, geod)
-#     x1 = 1 if abs(x0) < 0.5 else 0
-#     res = root_scalar(objective, x0=x0, x1=x1)
-#     if not res.converged:
-#         print(res)
-#     return gerp(a0, a1, res.root, geod=geod)
 
 def central_angle(x, y, signed=False):
     """Central angle between vectors with respect to 0. If vectors have norm
@@ -260,13 +230,13 @@ def central_angle(x, y, signed=False):
     >>> c = np.cos(t)
     >>> s = np.sin(t)
     >>> z = np.zeros(t.shape)
-    >>> x = np.stack((c, s, z), axis=-1)
-    >>> y = np.stack((c, z, s), axis=-1)
+    >>> x = np.stack((c, s, z), axis=0)
+    >>> y = np.stack((c, z, s), axis=0)
     >>> np.round(central_angle(x, y)/np.pi*180)
     array([  0.,  60.,  90.,  60.,   0.])
     """
-    cos = np.sum(x*y, axis=-1)
-    sin = np.linalg.norm(np.cross(x, y), axis=-1)
+    cos = np.sum(x*y, axis=0)
+    sin = np.linalg.norm(np.cross(x, y, axis=0), axis=0)
     result = np.arctan2(sin, cos)
     return result if signed else abs(result)
 
@@ -292,6 +262,33 @@ def slerp(pt1, pt2, intervals):
     angle = central_angle(pt1, pt2)[..., np.newaxis]
     return (np.sin((1 - t)*angle)*pt1 + np.sin((t)*angle)*pt2)/np.sin(angle)
 
+def triangle_solid_angle(a, b, c, axis=0):
+    """Solid angle of a triangle with respect to 0. If vectors have norm 1,
+    this is the spherical area. Note there are two solid angles defined by
+    three points, determined by orientation of a, b, c.
+    Formula is from Van Oosterom, A; Strackee, J (1983).
+    "The Solid Angle of a Plane Triangle". IEEE Trans. Biom. Eng.
+    BME-30 (2): 125–126. doi:10.1109/TBME.1983.325207.
+    Args:
+        a, b, c: Coordinates of points on the sphere.
+    Returns: Array of solid angles.
+    >>> t = np.linspace(0, np.pi, 5)
+    >>> a = np.stack([np.cos(t), np.sin(t), np.zeros(5)],axis=0)
+    >>> b = np.array([0, 1, 1])/np.sqrt(2)
+    >>> c = np.array([0, -1, 1])/np.sqrt(2)
+    >>> np.round(triangle_solid_angle(a, b, c), 4)
+    array([ 1.5708,  1.231 ,  0.    , -1.231 , -1.5708])
+    """
+    axes = (axis,axis)
+    top = np.tensordot(a, np.cross(b, c, axis=axis), axes=axes)
+    na = np.linalg.norm(a, axis=0)
+    nb = np.linalg.norm(b, axis=0)
+    nc = np.linalg.norm(c, axis=0)
+    bottom = (na * nb * nc + np.tensordot(a, b, axes=axes) * nc
+              + np.tensordot(b, c, axes=axes) * na
+              + np.tensordot(c, a, axes=axes) * nb)
+    return 2 * np.arctan2(top, bottom)
+
 def shoelace(pts):
     """Find area of polygon in the plane defined by pts, where pts is an
     array with shape (2,n).
@@ -301,8 +298,18 @@ def shoelace(pts):
     """
     return abs(np.sum(np.cross(pts, np.roll(pts, -1, axis=1), axis=0)))/2
 
+def antipode_v(ll):
+    """Antipodes of points given by longitude and latitude."""
+    antipode = ll.copy()
+    antipode[0] -= 180
+    index = antipode[0] < -180
+    antipode[0, index] += 360
+    antipode[1] *= -1
+    return antipode
+    
 def omegascale(adegpts, degpts_t, actrlpts, tgtpts, geod):
-    """
+    """Estimate scale factor and max deformation angle for a map projection
+    based on a grid of points
     """
     ar, p = geod.polygon_area_perimeter(actrlpts[0], actrlpts[1])
     #at = shoelace(tgtpts)
@@ -441,45 +448,131 @@ class Barycentric(Projection):
         result = self.minv @ xy1
         shape = [3,] + list(xy.shape[1:])
         return result.reshape(shape)
+    
+class UnitVector(Projection):
+    """Convert longitude and latitude to unit vector normals.
+    The methods of this class are static, and mostly organized in a class
+    for consistency."""
 
-class MapProjection(Projection, ABC):
-    def __init__(self, ctrlpts, geod):
+    @staticmethod
+    def transform(x, y, **kwargs):
+        pts = np.stack([x,y])
+        vresult = UnitVector.transform_v(pts, **kwargs)
+        return vresult
+
+    @staticmethod
+    def invtransform(x, y, z, **kwargs):
+        pts = np.stack([x,y,z])
+        vresult = UnitVector.invtransform_v(pts, **kwargs)
+        return vresult
+
+    @staticmethod
+    def transform_v(ll, scale=np.pi/180):
+        """Convert longitude and latitude to 3-vector
+
+        >>> ll = np.arange(6).reshape(2,3)*18
+        >>> UnitVector.transform_v(ll)
+        array([[5.87785252e-01, 2.93892626e-01, 4.95380036e-17],
+               [0.00000000e+00, 9.54915028e-02, 3.59914664e-17],
+               [8.09016994e-01, 9.51056516e-01, 1.00000000e+00]])
+        """
+        lon, lat = ll*scale
+        x = np.cos(lat)*np.cos(lon)
+        y = np.cos(lat)*np.sin(lon)
+        z = np.sin(lat)
+        return np.stack([x, y, z], axis=0)
+
+    @staticmethod
+    def invtransform_v(pts, scale=180/np.pi):
+        """Convert 3-vector to longitude and latitude.
+        Vector does not have to be normalized.
+
+        >>> UnitVector.invtransform_v(np.eye(3))
+        array([[ 0., 90.,  0.],
+               [ 0.,  0., 90.]])
+        """
+        lat = scale*np.arctan2(pts[2], sqrt(pts[1]**2 + pts[0]**2))
+        lon = scale*np.arctan2(pts[1], pts[0])
+        return np.stack([lon, lat], axis=0)    
+
+class CtrlPtsProjection(Projection, ABC):
+    """Subclass for any map projection that uses (2 or more) control points."""
+    def __init__(self, ctrlpts, geod = pyproj.Geod(a=1, b=1)):
         """Parameters:
-        ctrlpts: 2x3 or 2x4 Numpy array, latitude and longitude of 
+        ctrlpts: 2x3 or 2x4 Numpy array, latitude and longitude of
             each control point
         geod= a pyproj.Geod object. For a unit sphere use
             pyproj.Geod(a=1,b=1)
         """
+        n = ctrlpts.shape[1]
+        if self.nctrlpts != n:
+            raise ValueError(
+                'ctrlpts has wrong number of points for this projection')
         self.geod = geod
+        #it's possible to get a geod where this would give the wrong answer,
+        #but I think it would have to be really weird
+        area, _ = geod.polygon_area_perimeter([0,120,-120],[0,0,0])
+        self.totalarea = 2*area
+
         self.ctrlpts = ctrlpts
-        self.ctrlvector = lltovector(*ctrlpts)
-        faz, baz, sidelengths = self.geod.inv(ctrlpts[0], ctrlpts[1],
-                                          np.roll(ctrlpts[0], -1),
-                                          np.roll(ctrlpts[1], -1))
-        area, _ = geod.polygon_area_perimeter(*ctrlpts)
-        self.sidelengths = sidelengths
-        self.faz = faz
-        self.baz = baz
-        self.ctrlarea = area
-        antipode = ctrlpts.copy()
-        antipode[0] -= 180
-        index = antipode[0] < -180
-        antipode[0, index] += 360
-        antipode[1] *= -1
-        self.ctrlantipode = antipode
-        self.ctrlantipodevector = lltovector(*antipode)
-        if ctrlpts.shape[1] == 4:
-            ctrlvector = self.ctrlvector 
-            v0 = ctrlvector[..., 0]
-            v1 = ctrlvector[..., 1]
-            v2 = ctrlvector[..., 2]
-            v3 = ctrlvector[..., 3]
-            poip1 = np.cross(np.cross(v0,v1), np.cross(v3,v2))
-            poip2 = np.cross(np.cross(v0,v3), np.cross(v1,v2))
-            poip = np.stack([[poip1,-poip1],[poip2,-poip2]]).transpose(2,0,1)
+        ctrlpts_v = UnitVector.transform_v(ctrlpts)
+        self.ctrlpts_v = ctrlpts_v
+        antipode = antipode_v(ctrlpts)
+        self.antipode = antipode
+        self.antipode_v = UnitVector.transform_v(antipode)
+        self.sa = 0
+        if self.nctrlpts > 2:
+            faz, baz, sides = self.geod.inv(ctrlpts[0], ctrlpts[1],
+                                              np.roll(ctrlpts[0], -1),
+                                              np.roll(ctrlpts[1], -1))
+            self.sides = sides
+            self.faz = faz
+            self.baz = baz
+            area, _ = geod.polygon_area_perimeter(*ctrlpts)
+            self.area = area
+            self.ca = central_angle(ctrlpts_v, 
+                                        np.roll(ctrlpts_v, -1, axis=1))
+            for i in range(1, self.nctrlpts-1):
+                self.sa += triangle_solid_angle(ctrlpts_v[..., 0],
+                                                    ctrlpts_v[..., i],
+                                                    ctrlpts_v[..., i+1])
+                    
+            self.edgenormals = np.cross(ctrlpts_v, 
+                                        np.roll(ctrlpts_v, -1, axis=1), axis=0)
+                
+        else:
+            faz, baz, sides = self.geod.inv(ctrlpts[0,0], ctrlpts[1,0],
+                                              ctrlpts[0,1], ctrlpts[1,1])
+            self.sides = sides
+            self.faz = faz
+            self.baz = baz
+            self.area = 0
+            self.ca = central_angle(ctrlpts_v[..., 0], ctrlpts_v[..., 1])            
+            self.edgenormals = np.cross(ctrlpts_v[..., 0], ctrlpts_v[..., 1])             
+            
+        self.cosca = np.cos(self.ca)
+        self.sinca = np.sin(self.ca)
+            
+        if self.sa < 0:
+            warnings.warn('control polygon is in negative orientation, '
+                          + 'may cause unusual results')
+            
+        if self.nctrlpts == 4:
+            ctrlpts_v = self.ctrlpts_v
+            v0 = ctrlpts_v[..., 0]
+            v1 = ctrlpts_v[..., 1]
+            v2 = ctrlpts_v[..., 2]
+            v3 = ctrlpts_v[..., 3]
+            poip1 = np.cross(np.cross(v0, v1), np.cross(v3, v2))
+            poip2 = np.cross(np.cross(v0, v3), np.cross(v1, v2))
+            poip = np.stack([[poip1, -poip1], 
+                             [poip2, -poip2]]).transpose(2,0,1)
             poip = poip / np.linalg.norm(poip, axis=0)
-            self.poiv = poip
-            self.poi = vectortoll(poip)        
+            self.poi_v = poip
+            self.poi = UnitVector.invtransform_v(poip)
+            self.crossx = np.cross(ctrlpts_v, 
+                                   np.roll(ctrlpts_v, -2, axis=1), 
+                                   axis=0)[..., :2]
 
     def orienttgtpts(self, tgtpts, N = (0, 90)):
         """Orient target points so that line from 0 to the projection of N
@@ -492,13 +585,72 @@ class MapProjection(Projection, ABC):
                          [np.sin(angle),  np.cos(angle)]])
         result = rotm @ tgtpts
         self.tgtpts = result
+        
+    def _fix_corners(self, *args, **kwargs):
+        if self.nctrlpts == 4:
+            return self._fix_corners_uv(*args, **kwargs)
+        elif self.nctrlpts == 3:
+            return self._fix_corners_bary(*args, **kwargs)
+
+    def _fix_corners_uv(self, lon, lat, result):
+        ctrlpts = self.ctrlpts
+        index0 = (lon == ctrlpts[0,0]) & (lat == ctrlpts[1,0])
+        index1 = (lon == ctrlpts[0,1]) & (lat == ctrlpts[1,1])
+        index2 = (lon == ctrlpts[0,2]) & (lat == ctrlpts[1,2])
+        index3 = (lon == ctrlpts[0,3]) & (lat == ctrlpts[1,3])
+        result[..., index0] = np.array([ 0,  0])[..., np.newaxis]
+        result[..., index1] = np.array([ 1,  0])[..., np.newaxis]
+        result[..., index2] = np.array([ 1,  1])[..., np.newaxis]
+        result[..., index3] = np.array([ 0,  1])[..., np.newaxis]
+        return result
+
+    def _fix_corners_bary(self, lon, lat, result):
+        ctrlpts = self.ctrlpts
+        index0 = (lon == ctrlpts[0,0]) & (lat == ctrlpts[1,0])
+        index1 = (lon == ctrlpts[0,1]) & (lat == ctrlpts[1,1])
+        index2 = (lon == ctrlpts[0,2]) & (lat == ctrlpts[1,2])
+        result[..., index0] = np.array([1, 0, 0])[..., np.newaxis]
+        result[..., index1] = np.array([0, 1, 0])[..., np.newaxis]
+        result[..., index2] = np.array([0, 0, 1])[..., np.newaxis]
+        return result
+
+    def _fix_corners_inv(self, *args, **kwargs):
+        if self.nctrlpts == 4:
+            return self._fix_corners_inv_uv(*args, **kwargs)
+        elif self.nctrlpts == 3:
+            return self._fix_corners_inv_bary(*args, **kwargs)
+
+    def _fix_corners_inv_uv(self, x, y, result):
+        index0 = (x == 0) & (y == 0)
+        index1 = (x == 1) & (y == 0)
+        index2 = (x == 1) & (y == 1)
+        index3 = (x == 0) & (y == 1)
+        result[..., index0] = self.ctrlpts_v[..., 0, np.newaxis]
+        result[..., index1] = self.ctrlpts_v[..., 1, np.newaxis]
+        result[..., index2] = self.ctrlpts_v[..., 2, np.newaxis]
+        result[..., index3] = self.ctrlpts_v[..., 3, np.newaxis]
+        return result
+
+    def _fix_corners_inv_bary(self, bary, result):
+        index0 = (bary[0] == 1)
+        index1 = (bary[1] == 1)
+        index2 = (bary[2] == 1)
+        if np.any(index0):
+            result[..., index0] = self.ctrlpts_v[..., 0, np.newaxis]
+        if np.any(index1):
+            result[..., index1] = self.ctrlpts_v[..., 1, np.newaxis]
+        if np.any(index2):
+            result[..., index2] = self.ctrlpts_v[..., 2, np.newaxis]
+        return result        
 
 #%%
-class ChambTrimetric(MapProjection):
+class ChambTrimetric(CtrlPtsProjection):
     """Chamberlin trimetric projection"""
+    nctrlpts = 3
+    
     def __init__(self, ctrlpts, geod):
         super().__init__(ctrlpts, geod)
-        self.tgtpts = trigivenlengths(self.sidelengths)
+        self.tgtpts = trigivenlengths(self.sides)
         try:
             self.orienttgtpts(self.tgtpts)
         except ValueError:
@@ -556,8 +708,9 @@ class LstSqTrimetric(ChambTrimetric):
                        method = 'BFGS')
         return res.x
 #%%
-class LinearTrimetric(MapProjection):
+class LinearTrimetric(CtrlPtsProjection):
     """The linear variation of the Chamberlin Trimetric projection."""
+    nctrlpts = 3    
     matrix1 = np.array([[0,-1],
                [1,0]])
     matrix2 = np.array([[0, -1, 1],
@@ -574,11 +727,11 @@ class LinearTrimetric(MapProjection):
         pyproj.Geod(a=1,b=1).
         """
         super().__init__(ctrlpts, geod)
-        vctrl = self.ctrlvector
+        vctrl = self.ctrlpts_v
         self.radius = ((geod.a**(3/2) + geod.b**(3/2))/2)**(2/3)
         self.invctrlvector = np.linalg.pinv(vctrl)
         self.invperpmatrix = np.linalg.pinv(vctrl.T @ vctrl)
-        self.tgtpts = trigivenlengths(self.sidelengths)
+        self.tgtpts = trigivenlengths(self.sides)
         self.setmat()
         try:
             self.orienttgtpts(self.tgtpts)
@@ -637,7 +790,7 @@ class LinearTrimetric(MapProjection):
         rsq = np.clip(k + h, 0, np.pi**2)
         c = np.cos(np.sqrt(rsq))
         vector = self.invctrlvector.T @ c
-        return vectortoll(vector).reshape(pts.shape)
+        return UnitVector.invtransform_v(vector).reshape(pts.shape)
 
     def nmforplot(self, pts, n=100):
         rpts = pts.reshape((2,-1))
@@ -650,8 +803,10 @@ class LinearTrimetric(MapProjection):
         nm = np.einsum('i...,ij,j...', c, self.invperpmatrix, c)
         return h, nm
 #%%
-class Areal(MapProjection):
+class Areal(CtrlPtsProjection):
     """Spherical areal projection."""
+    nctrlpts = 3
+    
     def __init__(self, ctrlpts, geod):
         """Parameters:
         ctrlpts: 2x3 Numpy array, latitude and longitude of each control point
@@ -659,19 +814,15 @@ class Areal(MapProjection):
                 pyproj.Geod(a=1,b=1).
         """
         super().__init__(ctrlpts, geod)
-        #it's possible to get a geod where this would give the wrong answer,
-        #but it's not likely
-        area, _ = geod.polygon_area_perimeter([0,120,-120],[0,0,0])
-        self.totalarea = 2*area
-        self.ctrlarea, _ = geod.polygon_area_perimeter(ctrlpts[0],
-                                                        ctrlpts[1])
-        vctrl = lltovector(ctrlpts[0], ctrlpts[1])
-        self.ctrlvector = vctrl
-        a_i = np.sum(np.roll(self.ctrlvector, -1, axis=1) *
-                          np.roll(self.ctrlvector, 1, axis=1), axis=0)
+        #self.ctrlarea, _ = geod.polygon_area_perimeter(ctrlpts[0],
+        #                                                ctrlpts[1])
+        #vctrl = UnitVector.transform_v(ctrlpts)
+        #self.ctrlpts_v = vctrl
+        a_i = np.sum(np.roll(self.ctrlpts_v, -1, axis=1) *
+                          np.roll(self.ctrlpts_v, 1, axis=1), axis=0)
         self.a_i = a_i
         self.b_i = (np.roll(a_i, -1) + np.roll(a_i, 1))/(1+a_i)
-        self.tau_c = self.tau(self.ctrlarea)
+        self.tau_c = self.tau(self.area)
 
     def tau(self, area):
         """Convert areas on the geod to tau values for inverse transform"""
@@ -687,7 +838,7 @@ class Areal(MapProjection):
                                                          smtri[1])
                 areas.append(a)
             areas = np.array(areas)
-            return areas/self.ctrlarea
+            return areas/self.area
         except ValueError:
             raise TypeError()
 
@@ -697,90 +848,22 @@ class Areal(MapProjection):
             warnings.warn('inverse transform is approximate on ellipsoids')
         b_i = self.b_i[:,np.newaxis]
         tau = self.tau_c
-        tau_i = self.tau(self.ctrlarea*rbary)
+        tau_i = self.tau(self.area*rbary)
         t_i = tau_i/tau
         c_i = t_i / ((1+b_i) + (1-b_i) * t_i)
         f_i = c_i / (1 - np.sum(c_i, axis=0))
-        vector = self.ctrlvector @ f_i
+        vector = self.ctrlpts_v @ f_i
         shape = [2] + list(bary.shape[1:])
-        result = vectortoll(vector).reshape(shape)
+        result = UnitVector.invtransform_v(vector).reshape(shape)
         return result
 #%%
-class SphereProjection(MapProjection):
-    geod = pyproj.Geod(a=1, b=1)
-
-    def __init__(self, ctrlpts, k=0):
-        """Parameters:
-        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
-        """
-        super().__init__(ctrlpts, self.geod)
-        self.k = k
-
-    def transform(self, *args, **kwargs):
-        return NotImplemented
-
-    def _fix_corners(self, *args, **kwargs):
-        if self.ctrlpts.shape[1] == 4:
-            return self._fix_corners_uv(*args, **kwargs)
-        elif self.ctrlpts.shape[1] == 3:
-            return self._fix_corners_bary(*args, **kwargs)
-
-    def _fix_corners_uv(self, lon, lat, result):
-        ctrlpts = self.ctrlpts
-        index0 = (lon == ctrlpts[0,0]) & (lat == ctrlpts[1,0])
-        index1 = (lon == ctrlpts[0,1]) & (lat == ctrlpts[1,1])
-        index2 = (lon == ctrlpts[0,2]) & (lat == ctrlpts[1,2])
-        index3 = (lon == ctrlpts[0,3]) & (lat == ctrlpts[1,3])
-        result[..., index0] = np.array([-1, -1])[..., np.newaxis]
-        result[..., index1] = np.array([ 1, -1])[..., np.newaxis]
-        result[..., index2] = np.array([ 1,  1])[..., np.newaxis]
-        result[..., index3] = np.array([-1,  1])[..., np.newaxis]
-        return result
-
-    def _fix_corners_bary(self, lon, lat, result):
-        ctrlpts = self.ctrlpts
-        index0 = (lon == ctrlpts[0,0]) & (lat == ctrlpts[1,0])
-        index1 = (lon == ctrlpts[0,1]) & (lat == ctrlpts[1,1])
-        index2 = (lon == ctrlpts[0,2]) & (lat == ctrlpts[1,2])
-        result[..., index0] = np.array([1, 0, 0])[..., np.newaxis]
-        result[..., index1] = np.array([0, 1, 0])[..., np.newaxis]
-        result[..., index2] = np.array([0, 0, 1])[..., np.newaxis]
-        return result
-
-    def _fix_corners_inv(self, *args, **kwargs):
-        if self.ctrlpts.shape[1] == 4:
-            return self._fix_corners_inv_uv(*args, **kwargs)
-        elif self.ctrlpts.shape[1] == 3:
-            return self._fix_corners_inv_bary(*args, **kwargs)
-
-    def _fix_corners_inv_uv(self, x, y, result):
-        index0 = (x == -1) & (y == -1)
-        index1 = (x == 1) & (y == -1)
-        index2 = (x == 1) & (y == 1)
-        index3 = (x == -1) & (y == 1)
-        result[..., index0] = self.ctrlvector[..., 0, np.newaxis]
-        result[..., index1] = self.ctrlvector[..., 1, np.newaxis]
-        result[..., index2] = self.ctrlvector[..., 2, np.newaxis]
-        result[..., index3] = self.ctrlvector[..., 3, np.newaxis]
-        return result
-
-    def _fix_corners_inv_bary(self, bary, result):
-        index0 = (bary[0] == 1)
-        index1 = (bary[1] == 1)
-        index2 = (bary[2] == 1)
-        if np.any(index0):
-            result[..., index0] = self.ctrlvector[..., 0, np.newaxis]
-        if np.any(index1):
-            result[..., index1] = self.ctrlvector[..., 1, np.newaxis]
-        if np.any(index2):
-            result[..., index2] = self.ctrlvector[..., 2, np.newaxis]
-        return result
-#%%
-class BisectTri(SphereProjection):
+class BisectTri(CtrlPtsProjection):
+    nctrlpts = 3
+    
     def transform(self, lon, lat):
-        vtestpt = lltovector(lon, lat)
+        vtestpt = UnitVector.transform(lon, lat)
         areas = []
-        vctrlpts = self.ctrlvector
+        vctrlpts = self.ctrlpts_v
         actrlpts = self.ctrlpts
         geod = self.geod
         area = self.ctrlarea
@@ -789,7 +872,7 @@ class BisectTri(SphereProjection):
             ac = np.roll(actrlpts, i, axis=1)
             lproj = -np.cross(np.cross(vc[..., 1], vc[..., 2]),
                               np.cross(vc[..., 0], vtestpt))
-            lllproj = vectortoll(lproj)
+            lllproj = UnitVector.invtransform_v(lproj)
             a1, _ = geod.polygon_area_perimeter(list(ac[0]) + [lllproj[0]],
                                                 list(ac[1]) + [lllproj[1]])
             areas.append(a1)
@@ -812,7 +895,9 @@ class BisectTri(SphereProjection):
         return NotImplemented
 
 #%%
-class FullerTri(SphereProjection):
+class FullerTri(CtrlPtsProjection):
+    nctrlpts = 3
+    
     def __init__(self, ctrlpts, tweak=False):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
@@ -827,37 +912,34 @@ class FullerTri(SphereProjection):
             return fixbary_subtract(bary)
 
     def transform(self, lon, lat):
-        vtestpt = lltovector(lon, lat)
-        ctrlvector = self.ctrlvector
+        vtestpt = UnitVector.transform(lon, lat)
+        ctrlpts_v = self.ctrlpts_v
         b = []
         for i in range(3):
-            v0 = ctrlvector[..., i]
-            v1 = ctrlvector[..., (i+1)%3]
-            v2 = ctrlvector[..., (i+2)%3]
+            v0 = ctrlpts_v[..., i]
+            v1 = ctrlpts_v[..., (i+1)%3]
+            v2 = ctrlpts_v[..., (i+2)%3]
             vt01 = vtestpt @ np.cross(v0, v1)
             vt12 = vtestpt @ np.cross(v1, v2)
-            vt20 = vtestpt @ np.cross(v2, v0)        
+            vt20 = vtestpt @ np.cross(v2, v0)
             cosw01 = v0 @ v1
             cosw02 = v0 @ v2
             w01 = np.arccos(cosw01)
             w02 = np.arccos(cosw02)
-            #print(w01, w02)            
             if np.isclose(w01, w02):
-                #print('equal')
                 w = (w01 + w02) / 2
                 sinw = np.sin(w)
                 cosw = np.cos(w)
                 g = vt12 + cosw*(vt01 + vt20)
                 ti = self._b_eq(w, sinw, vt20, vt01, g)
             else:
-                #print('notequal')
                 sinw01 = sqrt(1 - cosw01**2)
                 sinw02 = sqrt(1 - cosw02**2)
-                g = vt12 + cosw02*vt01 + cosw01*vt20                        
+                g = vt12 + cosw02*vt01 + cosw01*vt20
                 ti = self._b_neq(w01, sinw02, vt01, w02, sinw01, vt20, g)
             b.append(1-ti)
         return self.fixbary(b)
-    
+
     def _b_neq(self, w01, sinw02, vt01, w02, sinw01, vt20, g):
         t0 = (w01*sinw02*vt01 + w02*sinw01*vt20)/(g*w01*w02)
         if ~np.isfinite(t0):
@@ -865,7 +947,7 @@ class FullerTri(SphereProjection):
         else:
             lim = np.pi/np.array([w01,w02]).max()
             t0 = np.clip(t0, -lim, lim)
-            
+
         if abs(t0) < 1E-3:
             return t0
         w = (w01 + w02) / 2
@@ -875,81 +957,143 @@ class FullerTri(SphereProjection):
         c1 = sqrt(g**2 + (sinw01*vt20 - sinw02*vt01)**2)
         c2 = sqrt(g**2 + (sinw01*vt20 + sinw02*vt01)**2)
         d1 = np.arctan2(sinw01*vt20 - sinw02*vt01, g)
-        d2 = np.arctan2(sinw01*vt20 + sinw02*vt01, g)        
+        d2 = np.arctan2(sinw01*vt20 + sinw02*vt01, g)
         def objective(t):
             if t < -lim or t > lim:
                 return t**2, 2*t
             if t == 0:
                 t = np.finfo(float).eps
             z = c1*np.cos((w01 - w02)*t - d1) - c2*np.cos((w01 + w02)*t - d2)
-            dz = (-c1*(w01 - w02)*np.sin((w01 - w02)*t - d1) 
+            dz = (-c1*(w01 - w02)*np.sin((w01 - w02)*t - d1)
                   + c2*(w01 + w02)*np.sin((w01 + w02)*t - d2))
-            return z/t, (t*dz - z)*t**-2        
+            return z/t, (t*dz - z)*t**-2
         res = root_scalar(objective, fprime=True, method='newton', x0=t0)
         return res.root
-        
+
     def _b_eq(self, w, sinw, vt20, vt01, gx):
         #x = sinw*(vt20 + vt01)/gx
-        tx = np.arctan2(sinw*(vt20 + vt01),gx)/w                
+        tx = np.arctan2(sinw*(vt20 + vt01),gx)/w
         #this form would be more efficient:
         #b = np.arctan2(sinw*vt12, cosw*vt12 + vt01 + vt20)/w
         return tx
-        
+
     def invtransform(self, b1, b2, b3):
-        return NotImplemented
-#%%
-class FullerQuad(SphereProjection):
+        if self.tweak:
+            return self._invtransform_normalize(b1, b2, b3)
+        else:
+            return self._invtransform_subtract(b1, b2, b3)
+        
+    def _invtransform_subtract(self, b1, b2, b3):
+        bi = np.array([b1, b2, b3])
+        v0 = self.ctrlpts_v[..., 0]
+        v1 = self.ctrlpts_v[..., 1]
+        v2 = self.ctrlpts_v[..., 2]        
+        def objective(k):
+            v01 = slerp(v1, v0, bi[0] + k)
+            v02 = slerp(v2, v0, bi[0] + k)
+            cx12 = np.cross(v01, v02)
+            v12 = slerp(v2, v1, bi[1] + k)
+            v10 = slerp(v0, v1, bi[1] + k)
+            cx20 = np.cross(v12, v10)
+            v20 = slerp(v0, v2, bi[2] + k)
+            v21 = slerp(v1, v2, bi[2] + k)
+            cx01 = np.cross(v20, v21)
+            
+            v0x = normalize(np.cross(cx20, cx01))
+            v1x = normalize(np.cross(cx01, cx12))
+            #v2x = normalize(np.cross(cx12, cx20))
+            return np.linalg.norm(v0x-v1x)
+        
+        res = minimize_scalar(objective, bracket=[0,0.1])
+        k = res.x
+        v12 = slerp(v2, v1, bi[1] + k)
+        v10 = slerp(v0, v1, bi[1] + k)
+        cx20 = np.cross(v12, v10)
+        v20 = slerp(v0, v2, bi[2] + k)
+        v21 = slerp(v1, v2, bi[2] + k)
+        cx01 = np.cross(v20, v21)
+        
+        v0x = normalize(np.cross(cx20, cx01))
+        return UnitVector.invtransform_v(v0x)
     
+    def _invtransform_normalize(self, b1, b2, b3):
+        bi = np.array([b1, b2, b3])
+        v0 = self.ctrlpts_v[..., 0]
+        v1 = self.ctrlpts_v[..., 1]
+        v2 = self.ctrlpts_v[..., 2]
+        def objective(k):
+            v01 = slerp(v1, v0, bi[0] * k)
+            v02 = slerp(v2, v0, bi[0] * k)
+            cx12 = normalize(np.cross(v01, v02))
+            v12 = slerp(v2, v1, bi[1] * k)
+            v10 = slerp(v0, v1, bi[1] * k)
+            cx20 = normalize(np.cross(v12, v10))
+            v20 = slerp(v0, v2, bi[2] * k)
+            v21 = slerp(v1, v2, bi[2] * k)
+            cx01 = normalize(np.cross(v20, v21))
+            v0x = normalize(np.cross(cx20, cx01))
+            v1x = normalize(np.cross(cx01, cx12))
+            #v2x = normalize(np.cross(cx12, cx20))
+            return np.linalg.norm(v0x-v1x)
+        
+        res = minimize_scalar(objective, bracket=[1,1.1])
+        k = res.x
+        v12 = slerp(v2, v1, bi[1] * k)
+        v10 = slerp(v0, v1, bi[1] * k)
+        cx20 = normalize(np.cross(v12, v10))
+        v20 = slerp(v0, v2, bi[2] * k)
+        v21 = slerp(v1, v2, bi[2] * k)
+        cx01 = normalize(np.cross(v20, v21))
+        
+        v0x = normalize(np.cross(cx20, cx01))
+        return UnitVector.invtransform_v(v0x)
+#%%
+class FullerQuad(CtrlPtsProjection):
+    nctrlpts = 4
+
     def transform(self, lon, lat):
-        vtestpt = lltovector(lon, lat)
-        ctrlvector = self.ctrlvector
+        vtestpt = UnitVector.transform(lon, lat)
+        ctrlpts_v = self.ctrlpts_v
+        lon + 0#will TypeError if lon is not a number
         result = []
         for p in [(1,3),(3,1)]:
-            #print(p)
-            v0 = ctrlvector[..., 0]
-            v1 = ctrlvector[..., p[0]]
-            v2 = ctrlvector[..., 2]
-            v3 = ctrlvector[..., p[1]]
+            #FIXME can calculate a lot of this stuff beforehand
+            v0 = ctrlpts_v[..., 0]
+            v1 = ctrlpts_v[..., p[0]]
+            v2 = ctrlpts_v[..., 2]
+            v3 = ctrlpts_v[..., p[1]]
             vt01 = vtestpt @ np.cross(v0, v1)
             vt12 = vtestpt @ np.cross(v1, v2)
             vt23 = vtestpt @ np.cross(v2, v3)
             vt30 = vtestpt @ np.cross(v3, v0)
-            
             vt02 = vtestpt @ np.cross(v0, v2)
             vt13 = vtestpt @ np.cross(v1, v3)
             cosw01 = v0 @ v1
-            #cosw12 = v1 @ v2
             cosw23 = v2 @ v3
-            #cosw30 = v3 @ v0
-            
             w01 = np.arccos(cosw01)
-            #w12 = np.arccos(cosw12)
             w23 = np.arccos(cosw23)
-            #w30 = np.arccos(cosw30)
             sinw01 = sqrt(1 - cosw01**2)
-            #sinw12 = sqrt(1 - cosw12**2)
             sinw23 = sqrt(1 - cosw23**2)
-            #sinw30 = sqrt(1 - cosw30**2)     
             if np.isclose(w01, w23):
                 w = (w01 + w23) / 2
                 sinw = np.sin(w)
                 cosw = np.cos(w)
-                j = self._b_eq(w, sinw, cosw, vt01, vt02, 
-                               vt12, vt13, vt23, vt30)
+                j = self._b_eq(w, sinw, cosw, vt01, vt02,
+                               vt12, vt13, vt23, vt30,
+                               v0, v1, v2, v3)
             else:
-                #print('ne')
-                j = self._b_neq(w01, w23, vt12, vt30, vt02, vt13, 
+                j = self._b_neq(w01, w23, vt12, vt30, vt02, vt13,
                                 cosw01, sinw01, cosw23, sinw23)
             result.append(j)
         return result
-    
-    def _b_neq(self, w01, w23, vt12, vt30, vt02, vt13, 
+
+    def _b_neq(self, w01, w23, vt12, vt30, vt02, vt13,
                cosw01, sinw01, cosw23, sinw23):
         rx2 = [vt12 - vt30 * (cosw01 * cosw23 + sinw01 * sinw23)
-                   - cosw01 * vt02 - cosw23 * vt13, 
+                   - cosw01 * vt02 - cosw23 * vt13,
                vt30 * (sinw23 * cosw01 - sinw01 * cosw23 )
                    + sinw23 * vt13 - sinw01 * vt02,
-                   + cosw01 * vt02 + cosw23 * vt13 -vt12 
+                   + cosw01 * vt02 + cosw23 * vt13 -vt12
                    + vt30 * (cosw01 * cosw23 - sinw01 * sinw23),
                vt30 * (sinw01 * cosw23 + sinw23 * cosw01 )
                    + sinw01 * vt02 + sinw23 * vt13]
@@ -965,62 +1109,73 @@ class FullerQuad(SphereProjection):
         #lims = [theta01/w01, theta23/w23
         #lim = 2
         def objective(t):
+            #FIXME need a limit here to prevent results running away
             #if t < -lim or t > lim:
             #    return t**2, 2*t
             z = c1*np.cos(wm*t - d1) + c2*np.cos(wp*t - d2)
             dz = -c1*wm*np.sin(wm*t - d1) - c2*wp*np.sin(wp*t - d2)
             return z, dz
-        
+
         res = root_scalar(objective, fprime=True, method='newton', x0=0.5)
         return res.root
-        
-    def _b_eq(self, w, sinw, cosw, vt01, vt02, vt12, vt13, vt23, vt30):
-        #print(w, sinw, cosw, vt01, vt02, vt12, vt13, vt23, vt30)
-        a = vt12 - cosw * (vt02 + vt13) - vt30 * cosw**2 
+
+    def _b_eq(self, w, sinw, cosw, vt01, vt02, vt12, vt13, vt23, vt30,
+              v0,v1,v2,v3):
+        a = vt12 - cosw * (vt02 + vt13) - vt30 * cosw**2
         b = sinw * (2 * vt30 * cosw + vt02 + vt13)
         c = -vt30 * sinw**2
-
-        #print(a,b,c)
         if a == 0:
             num = -c
-            denom = b     
+            denom = b
+            j = np.arctan2(num,denom)/w
+            return j            
         else:
             desc = b**2 - 4*a*c
-            if b > 0:#FIXME buhhhh
-                num = -b + sqrt(desc)
+            nump = -b + sqrt(desc)
+            numn = -b - sqrt(desc)
+            denom= 2*a
+            jp = np.arctan2(nump,denom)/w
+            jn = np.arctan2(numn,denom)/w
+            #FIXME there must be a more efficient way to do this
+            v01p = slerp(v0, v1, jp)
+            v32p = slerp(v3, v2, jp)
+            v01n = slerp(v0, v1, jn)
+            v32n = slerp(v3, v2, jn)
+            cosp = v01p @ v32p
+            cosn = v01n @ v32n
+            if cosp > cosn :
+                return jn
             else:
-                num = -b - sqrt(desc)
-            denom= 2*a                 
-        j = np.arctan2(num,denom)/w
-        #print(j)
-        return j
+                return jp
 
     def invtransform(self, u, v):
-        a = self.ctrlvector[..., 0]
-        b = self.ctrlvector[..., 1]
-        c = self.ctrlvector[..., 2]
-        d = self.ctrlvector[..., 3]
+        a = self.ctrlpts_v[..., 0]
+        b = self.ctrlpts_v[..., 1]
+        c = self.ctrlpts_v[..., 2]
+        d = self.ctrlpts_v[..., 3]
         f = slerp(a,b,u)
         g = slerp(d,c,u)
         h = slerp(b,c,v)
         k = slerp(a,d,v)
         inv = np.cross(np.cross(f, g), np.cross(h, k))
-        return vectortoll(inv)
+        return UnitVector.invtransform_v(inv)
 #%%
-class SnyderEA(SphereProjection):
+class SnyderEA(CtrlPtsProjection):
+    nctrlpts = 3
+    
     def __init__(self, ctrlpts):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
-        ctrlvector = self.ctrlvector
-        v_0 = ctrlvector[..., 0]
-        v_1 = ctrlvector[..., 1]
-        v_2 = ctrlvector[..., 2]
+        ctrlpts_v = self.ctrlpts_v
+        v_0 = ctrlpts_v[..., 0]
+        v_1 = ctrlpts_v[..., 1]
+        v_2 = ctrlpts_v[..., 2]
         self.v_01 = v_0 @ v_1
         self.v_12 = v_1 @ v_2
         self.v_20 = v_2 @ v_0
-        self.v_012 = np.linalg.det(ctrlvector)
+        self.v_012 = np.linalg.det(ctrlpts_v)
         self.c = self.v_12
         self.c2 = self.c**2
         self.s2 = 1 - self.c2
@@ -1029,18 +1184,18 @@ class SnyderEA(SphereProjection):
 
     def transform(self, lon, lat):
         actrlpts = self.ctrlpts
-        ctrlvector = self.ctrlvector
+        ctrlpts_v = self.ctrlpts_v
         area = self.ctrlarea
         geod = self.geod
-        vtestpt = lltovector(lon, lat)
-        lproj = -np.cross(np.cross(ctrlvector[..., 1], ctrlvector[..., 2]),
-                          np.cross(ctrlvector[..., 0], vtestpt))
+        vtestpt = UnitVector.transform(lon, lat)
+        lproj = -np.cross(np.cross(ctrlpts_v[..., 1], ctrlpts_v[..., 2]),
+                          np.cross(ctrlpts_v[..., 0], vtestpt))
         norm = np.linalg.norm(lproj, axis=0, keepdims=True)
         if norm != 0:
             lproj = lproj / norm
-        lllproj = vectortoll(lproj)
-        cosAP = ctrlvector[..., 0] @ vtestpt
-        cosAD = ctrlvector[..., 0] @ lproj
+        lllproj = UnitVector.invtransform_v(lproj)
+        cosAP = ctrlpts_v[..., 0] @ vtestpt
+        cosAD = ctrlpts_v[..., 0] @ lproj
         pl = sqrt((1-cosAP)/(1-cosAD))
         b0 = 1 - pl
         lona = list(actrlpts[0,:2]) + [lllproj[0],]
@@ -1055,7 +1210,7 @@ class SnyderEA(SphereProjection):
         return np.where(np.isfinite(bresult), bresult, 0)
 
     def invtransform(self, b1, b2, b3):
-        ctrlvector = self.ctrlvector
+        ctrlpts_v = self.ctrlpts_v
         #actrlpts = self.ctrlpts
         area = self.ctrlarea
         #geod = self.geod
@@ -1075,17 +1230,19 @@ class SnyderEA(SphereProjection):
         Gp = 2*cA*s*(1 + v_01)*(sA*v_012 + cA*(v_01*c - v_20))
         #x = Gp/Fp
         result = 1/w*np.arctan2(Gp, Fp)
-        vd = slerp(ctrlvector[..., 1], ctrlvector[..., 2], result)
-        AdotD = ctrlvector[..., 0] @ vd
+        vd = slerp(ctrlpts_v[..., 1], ctrlpts_v[..., 2], result)
+        AdotD = ctrlpts_v[..., 0] @ vd
         AdotP = 1 - lp**2*(1-AdotD)
         t = np.arccos(AdotP)/np.arccos(AdotD)
-        vresult = slerp(ctrlvector[..., 0], vd, t)
+        vresult = slerp(ctrlpts_v[..., 0], vd, t)
         bary = np.stack([b1, b2, b3])
         vresult = self._fix_corners_inv_bary(bary, vresult)
         vresult = np.where(np.isfinite(vresult),vresult,0)
-        return vectortoll(vresult)
+        return UnitVector.invtransform_v(vresult)
 
-class SnyderEASym(SphereProjection):
+class SnyderEASym(CtrlPtsProjection):
+    nctrlpts = 3
+    
     """this doesn't really accomplish anything"""
     def __init__(self, ctrlpts):
         """Parameters:
@@ -1098,7 +1255,7 @@ class SnyderEASym(SphereProjection):
             pj = SnyderEA(cp)
             subproj.append(pj)
         self.subproj = subproj
-            
+
     def transform(self, lon, lat):
         subproj = self.subproj
         for i in range(3):
@@ -1111,129 +1268,220 @@ class SnyderEASym(SphereProjection):
                 beta = b
         return beta/3
     
-#%%
-class NSlerpTri(SphereProjection):
-    def _tri_naive_slerp_angles(self, bary, pow=1, eps=0):
+    def invtransform(self, *args, **kwargs):
+        return NotImplemented
+    
+#class ConformalTri(CtrlPtsProjection):
+#    pass
+
+#%% inverse-only ones
+class ReverseFullerTri(CtrlPtsProjection):
+    nctrlpts = 3
+    
+    def __init__(self, ctrlpts, tweak=False):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        self.tweak = tweak    
+    
+    def transform(self, *args, **kwargs):
+        return NotImplemented
+    
+    def invtransform(self, b1, b2, b3):
+        bi = np.array([b1, b2, b3])
+        v0 = self.ctrlpts_v[..., 0]
+        v1 = self.ctrlpts_v[..., 1]
+        v2 = self.ctrlpts_v[..., 2]        
+        v01 = slerp(v1, v0, bi[0])
+        v02 = slerp(v2, v0, bi[0])
+        cx12 = normalize(np.cross(v01, v02))
+        v12 = slerp(v2, v1, bi[1])
+        v10 = slerp(v0, v1, bi[1])
+        cx20 = normalize(np.cross(v12, v10))
+        v20 = slerp(v0, v2, bi[2])
+        v21 = slerp(v1, v2, bi[2])
+        cx01 = normalize(np.cross(v20, v21))
+        
+        v0x = np.cross(cx20, cx01)
+        v1x = np.cross(cx01, cx12)
+        v2x = np.cross(cx12, cx20)
+        vx = np.stack([v0x,v1x,v2x], axis=-1)
+        if not self.tweak:
+            vx = normalize(vx)
+        inv = vx.mean(axis=-1)
+        return UnitVector.invtransform_v(inv)
+    
+class NSlerpTri(CtrlPtsProjection):
+    nctrlpts = 3
+    def __init__(self, ctrlpts, pow=1, eps=0):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        self.pow = pow
+        angles = self.sides        
+        self.eq = (np.max(angles) - np.min(angles)) <= eps
+        if self.eq:
+            self.avangle = np.mean(angles)
+
+    def transform(self, *args, **kwargs):
+        return NotImplemented
+        
+    def _tri_naive_slerp_angles(self, bary):
         """Interpolates the angle factor so that it's equal to the
         angle between pts 1 and 2 when beta_3=0, etc.
         """
-        angles = self.sidelengths
-        if (np.max(angles) - np.min(angles)) <= eps:
-            return np.mean(angles)
-        #if np.allclose(angles):
-        #    return angles[..., 0]
+        angles = self.sides
+        if self.eq:
+            return self.avangle
         a = bary[0]
         b = bary[1]
         c = bary[2]
-        ab = (a*b)**pow
-        bc = (b*c)**pow
-        ca = (c*a)**pow
+        ab = (a*b)**self.pow
+        bc = (b*c)**self.pow
+        ca = (c*a)**self.pow
         denom = ab + bc + ca
         numer = ab*angles[0] + bc*angles[1] + ca*angles[2]
         return numer/denom
 
-    def invtransform_v(self, bary, pow=1):
-        base = self.ctrlvector
-        angles = self._tri_naive_slerp_angles(bary, pow)
+    def invtransform_v(self, bary):
+        base = self.ctrlpts_v
+        angles = self._tri_naive_slerp_angles(bary)
         b = np.sin(angles * bary) / np.sin(angles)
         result = (b.T.dot(base.T)).T
         result = self._fix_corners_inv(bary, result)
-        return vectortoll(result)
+        return UnitVector.invtransform_v(result)
 
-class NSlerpQuad(SphereProjection):
-    #FIXME convert to [0,1]**2 instead of [-1,1]**2
-    def _angles_interp(self, x, y, pow=1, eps=0):
+class NSlerpQuad(CtrlPtsProjection):
+    nctrlpts = 4
+    
+    def __init__(self, ctrlpts, pow=1, eps=0):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        self.pow = pow
+        angles = self.sides        
+        self.eq = (np.max(angles) - np.min(angles)) <= eps
+        if self.eq:
+            self.avangle = np.mean(angles)    
+    
+    def transform(self, *args, **kwargs):
+        return NotImplemented    
+
+    def _angles_interp(self, x, y):
         """Interpolates the angle factors separately so that it's equal to the
         angle between pts 1 and 2 when y=-1, etc.
         """
-        angles = self.sidelengths
+        pow= self.pow
+        angles = self.sides
         ax = angles[0]
         bx = angles[2]
         ay = angles[3]
         by = angles[1]
-        result1 = (ax*(1-y)**pow + bx*(1+y)**pow)/((1-y)**pow + (1+y)**pow)
-        result2 = (ay*(1-x)**pow + by*(1+x)**pow)/((1-x)**pow + (1+x)**pow)
+        result1 = (ax*(1-y)**pow + bx*(y)**pow)/((1-y)**pow + (y)**pow)
+        result2 = (ay*(1-x)**pow + by*(x)**pow)/((1-x)**pow + (x)**pow)
         return result1, result2
 
-    def invtransform_v(self, v, pow=1):
+    def invtransform_v(self, v):
         """
         Naive slerp on a spherical quadrilateral.
         """
         x = v[0]
         y = v[1]
-        anglex, angley = self._angles_interp(x, y, pow)
-        sx = np.sin((1+x)*anglex/2)
-        sy = np.sin((1+y)*angley/2)
-        scx = np.sin((1-x)*anglex/2)
-        scy = np.sin((1-y)*angley/2)
+        anglex, angley = self._angles_interp(x, y)
+        sx = np.sin((x)*anglex)
+        sy = np.sin((y)*angley)
+        scx = np.sin((1-x)*anglex)
+        scy = np.sin((1-y)*angley)
         a = scx * scy
         b = sx * scy
         c = sx * sy
         d = scx * sy
         mat = (np.stack([a, b, c, d], axis=-1) /
             (np.sin(anglex)* np.sin(angley))[..., np.newaxis] )
-        result = (mat.dot(self.ctrlvector.T)).T
+        result = (mat.dot(self.ctrlpts_v.T)).T
         result = self._fix_corners(x, y, result)
-        return vectortoll(result)
+        return UnitVector.invtransform_v(result)
 
 
-class NSlerpQuad2(SphereProjection):
-    #FIXME convert to [0,1]**2 instead of [-1,1]**2    
-    def _angles_interp(self, x, y, pow=1, eps=0):
+class NSlerpQuad2(CtrlPtsProjection):
+    nctrlpts = 4
+    def __init__(self, ctrlpts, pow=1, eps=0):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        self.pow = pow
+        angles = self.sides        
+        self.eq = (np.max(angles) - np.min(angles)) <= eps
+        if self.eq:
+            self.avangle = np.mean(angles)  
+            
+    def transform(self, *args, **kwargs):
+        return NotImplemented
+        
+    def _angles_interp(self, x, y):
         """Interpolates the angle factor together that it's equal to the
         angle between pts 1 and 2 when y=-1, etc.
         """
-        angles = self.sidelengths
-        if np.max(angles) - np.min(angles) <= eps:
-            return np.mean(angles)
-        a = ((1-x)*(1-y)*(1+x))**pow
-        b = ((1-y)*(1+x)*(1+y))**pow
-        c = ((1-x)*(1+x)*(1+y))**pow
-        d = ((1-x)*(1-y)*(1+y))**pow
+        pow = self.pow
+        angles = self.sides
+        if self.eq:
+            return self.avangle
+        a = ((1-x)*(1-y)*x)**pow
+        b = ((1-y)*x*y)**pow
+        c = ((1-x)*x*y)**pow
+        d = ((1-x)*(1-y)*y)**pow
         numer = a*angles[0] + b*angles[1] + c*angles[2] + d*angles[3]
         denom = a + b + c + d
         return numer/denom
 
-    def invtransform_v(self, v, pow=1):
+    def invtransform_v(self, v):
         """
         Variant naive slerp on a spherical quadrilateral.
         """
         x = v[0]
         y = v[1]
-        angle = self._angles_interp(x,y, pow)[..., np.newaxis]
+        angle = self._angles_interp(x, y)[..., np.newaxis]
         a = (1-x)*(1-y)
-        b = (1+x)*(1-y)
-        c = (1+x)*(1+y)
-        d = (1-x)*(1+y)
-        mat = (np.sin(np.stack([a, b, c, d], axis=-1)*angle/4) /
+        b = x*(1-y)
+        c = x*y
+        d = (1-x)*y
+        mat = (np.sin(np.stack([a, b, c, d], axis=-1)*angle) /
                np.sin(angle))
-        result = (mat.dot(self.ctrlvector.T)).T
+        result = (mat.dot(self.ctrlpts_v.T)).T
         result = self._fix_corners(x, y, result)
-        return vectortoll(result)
+        return UnitVector.invtransform_v(result)
 
-class EllipticalQuad(SphereProjection):
-    #FIXME convert to [0,1]**2 instead of [-1,1]**2    
+class EllipticalQuad(CtrlPtsProjection):
+    """An extension of the elliptical map.
+    """    
+    nctrlpts = 4
+
     def __init__(self, ctrlpts, eps=1E-6):
         """Parameters:
         ctrlpts: 2x4 Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
-        sidelength = self.sidelengths
+        sidelength = self.sides
         assert abs(sidelength[0] - sidelength[2]) < eps
         assert abs(sidelength[1] - sidelength[3]) < eps
         vertangles = (np.roll(self.baz, -1) - self.faz) % 360
         assert abs((vertangles - vertangles.mean()).sum()) < eps
 
+    def transform(self, *args, **kwargs):
+        return NotImplemented
+    
     def invtransform_v(self, v):
-        """An extension of the elliptical map.
-        """
         #FIXME needs rotations
-        rot_base = self.ctrlvector
+        rot_base = self.ctrlpts_v
         a = rot_base[0,0]
-        b = rot_base[0,1]
-        c = rot_base[0,2]
-        x = v[0]
-        y = v[1]
+        b = rot_base[1,0]
+        c = rot_base[2,0]
+        x = v[0]*2 - 1
+        y = v[1]*2 - 1
         axt = (1 - a**2*x**2)
         byt = (1 - b**2*y**2)
         at = (1-a**2)
@@ -1243,10 +1491,8 @@ class EllipticalQuad(SphereProjection):
         w = c * sqrt(axt*byt/(at*bt))
         result = np.stack([u,v,w], axis=0)
         result = self._fix_corners(x, y, result)
-        return vectortoll(result)
+        return UnitVector.invtransform_v(result)
 #%%
-class ConformalTri(MapProjection):
-    pass
 
 if __name__ == "__main__":
     import doctest
