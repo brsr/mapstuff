@@ -35,7 +35,7 @@ def normalize(vectors, axis=0):
     >>> x = np.stack((np.ones(5), np.arange(5)), axis=0)
     >>> normalize(x)
     array([[1.        , 0.70710678, 0.4472136 , 0.31622777, 0.24253563],
-           [0.        , 0.70710678, 0.89442719, 0.9486833 , 0.9701425 ]])    
+           [0.        , 0.70710678, 0.89442719, 0.9486833 , 0.9701425 ]])
     """
     n = np.linalg.norm(vectors, axis=axis, keepdims=True)
     return np.where(n <= 0, 0, vectors / n)
@@ -130,7 +130,12 @@ def transeach(func, geoms):
     """Transform each element of geoms using the function func."""
     plist = []
     for geom in geoms:
-        plist.append(shapely.ops.transform(func, geom))
+        try:
+            plist.append(shapely.ops.transform(func, geom))
+        except TypeError:
+            #special logic for points
+            ll = geom.coords[0]
+            plist.append(Point(func(*ll)))
     return geopandas.GeoSeries(plist)
 
 def graticule(spacing1=15, spacing2=1,
@@ -138,10 +143,10 @@ def graticule(spacing1=15, spacing2=1,
     """
     Create a graticule (or another square grid)
     """
-    a = (lonrange[1] - lonrange[0])/spacing2
-    b = (latrange[1] - latrange[0])/spacing1
-    c = (lonrange[1] - lonrange[0])/spacing1
-    d = (latrange[1] - latrange[0])/spacing2
+    a = int((lonrange[1] - lonrange[0])//spacing2)
+    b = int((latrange[1] - latrange[0])//spacing1)
+    c = int((lonrange[1] - lonrange[0])//spacing1)
+    d = int((latrange[1] - latrange[0])//spacing2)
     plx = np.linspace(lonrange[0], lonrange[1], num=a + 1)
     ply = np.linspace(latrange[0], latrange[1], num=b + 1)
     mex = np.linspace(lonrange[0], lonrange[1], num=c + 1)
@@ -262,6 +267,12 @@ def slerp(pt1, pt2, intervals):
     angle = central_angle(pt1, pt2)[..., np.newaxis]
     return (np.sin((1 - t)*angle)*pt1 + np.sin((t)*angle)*pt2)/np.sin(angle)
 
+def dslerp(pt1, pt2, intervals):
+    """The derivative of slerp."""
+    t = intervals
+    angle = central_angle(pt1, pt2)[..., np.newaxis]
+    return (-np.cos((1 - t)*angle)*pt1 + np.cos(t*angle)*pt2)/np.sin(angle)
+
 def triangle_solid_angle(a, b, c, axis=0):
     """Solid angle of a triangle with respect to 0. If vectors have norm 1,
     this is the spherical area. Note there are two solid angles defined by
@@ -306,7 +317,7 @@ def antipode_v(ll):
     antipode[0, index] += 360
     antipode[1] *= -1
     return antipode
-    
+
 def omegascale(adegpts, degpts_t, actrlpts, tgtpts, geod):
     """Estimate scale factor and max deformation angle for a map projection
     based on a grid of points
@@ -448,7 +459,7 @@ class Barycentric(Projection):
         result = self.minv @ xy1
         shape = [3,] + list(xy.shape[1:])
         return result.reshape(shape)
-    
+
 class UnitVector(Projection):
     """Convert longitude and latitude to unit vector normals.
     The methods of this class are static, and mostly organized in a class
@@ -493,7 +504,7 @@ class UnitVector(Projection):
         """
         lat = scale*np.arctan2(pts[2], sqrt(pts[1]**2 + pts[0]**2))
         lon = scale*np.arctan2(pts[1], pts[0])
-        return np.stack([lon, lat], axis=0)    
+        return np.stack([lon, lat], axis=0)
 
 class CtrlPtsProjection(Projection, ABC):
     """Subclass for any map projection that uses (2 or more) control points."""
@@ -530,16 +541,16 @@ class CtrlPtsProjection(Projection, ABC):
             self.baz = baz
             area, _ = geod.polygon_area_perimeter(*ctrlpts)
             self.area = area
-            self.ca = central_angle(ctrlpts_v, 
+            self.ca = central_angle(ctrlpts_v,
                                         np.roll(ctrlpts_v, -1, axis=1))
             for i in range(1, self.nctrlpts-1):
                 self.sa += triangle_solid_angle(ctrlpts_v[..., 0],
                                                     ctrlpts_v[..., i],
                                                     ctrlpts_v[..., i+1])
-                    
-            self.edgenormals = np.cross(ctrlpts_v, 
+
+            self.edgenormals = np.cross(ctrlpts_v,
                                         np.roll(ctrlpts_v, -1, axis=1), axis=0)
-                
+
         else:
             faz, baz, sides = self.geod.inv(ctrlpts[0,0], ctrlpts[1,0],
                                               ctrlpts[0,1], ctrlpts[1,1])
@@ -547,16 +558,16 @@ class CtrlPtsProjection(Projection, ABC):
             self.faz = faz
             self.baz = baz
             self.area = 0
-            self.ca = central_angle(ctrlpts_v[..., 0], ctrlpts_v[..., 1])            
-            self.edgenormals = np.cross(ctrlpts_v[..., 0], ctrlpts_v[..., 1])             
-            
+            self.ca = central_angle(ctrlpts_v[..., 0], ctrlpts_v[..., 1])
+            self.edgenormals = np.cross(ctrlpts_v[..., 0], ctrlpts_v[..., 1])
+
         self.cosca = np.cos(self.ca)
         self.sinca = np.sin(self.ca)
-            
+
         if self.sa < 0:
             warnings.warn('control polygon is in negative orientation, '
                           + 'may cause unusual results')
-            
+
         if self.nctrlpts == 4:
             ctrlpts_v = self.ctrlpts_v
             v0 = ctrlpts_v[..., 0]
@@ -565,13 +576,13 @@ class CtrlPtsProjection(Projection, ABC):
             v3 = ctrlpts_v[..., 3]
             poip1 = np.cross(np.cross(v0, v1), np.cross(v3, v2))
             poip2 = np.cross(np.cross(v0, v3), np.cross(v1, v2))
-            poip = np.stack([[poip1, -poip1], 
+            poip = np.stack([[poip1, -poip1],
                              [poip2, -poip2]]).transpose(2,0,1)
             poip = poip / np.linalg.norm(poip, axis=0)
             self.poi_v = poip
             self.poi = UnitVector.invtransform_v(poip)
-            self.crossx = np.cross(ctrlpts_v, 
-                                   np.roll(ctrlpts_v, -2, axis=1), 
+            self.crossx = np.cross(ctrlpts_v,
+                                   np.roll(ctrlpts_v, -2, axis=1),
                                    axis=0)[..., :2]
 
     def orienttgtpts(self, tgtpts, N = (0, 90)):
@@ -585,7 +596,7 @@ class CtrlPtsProjection(Projection, ABC):
                          [np.sin(angle),  np.cos(angle)]])
         result = rotm @ tgtpts
         self.tgtpts = result
-        
+
     def _fix_corners(self, *args, **kwargs):
         if self.nctrlpts == 4:
             return self._fix_corners_uv(*args, **kwargs)
@@ -641,13 +652,13 @@ class CtrlPtsProjection(Projection, ABC):
             result[..., index1] = self.ctrlpts_v[..., 1, np.newaxis]
         if np.any(index2):
             result[..., index2] = self.ctrlpts_v[..., 2, np.newaxis]
-        return result        
+        return result
 
 #%%
 class ChambTrimetric(CtrlPtsProjection):
     """Chamberlin trimetric projection"""
     nctrlpts = 3
-    
+
     def __init__(self, ctrlpts, geod):
         super().__init__(ctrlpts, geod)
         self.tgtpts = trigivenlengths(self.sides)
@@ -710,7 +721,7 @@ class LstSqTrimetric(ChambTrimetric):
 #%%
 class LinearTrimetric(CtrlPtsProjection):
     """The linear variation of the Chamberlin Trimetric projection."""
-    nctrlpts = 3    
+    nctrlpts = 3
     matrix1 = np.array([[0,-1],
                [1,0]])
     matrix2 = np.array([[0, -1, 1],
@@ -806,7 +817,7 @@ class LinearTrimetric(CtrlPtsProjection):
 class Areal(CtrlPtsProjection):
     """Spherical areal projection."""
     nctrlpts = 3
-    
+
     def __init__(self, ctrlpts, geod):
         """Parameters:
         ctrlpts: 2x3 Numpy array, latitude and longitude of each control point
@@ -859,7 +870,7 @@ class Areal(CtrlPtsProjection):
 #%%
 class BisectTri(CtrlPtsProjection):
     nctrlpts = 3
-    
+
     def transform(self, lon, lat):
         vtestpt = UnitVector.transform(lon, lat)
         areas = []
@@ -897,7 +908,7 @@ class BisectTri(CtrlPtsProjection):
 #%%
 class FullerTri(CtrlPtsProjection):
     nctrlpts = 3
-    
+
     def __init__(self, ctrlpts, tweak=False):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
@@ -912,6 +923,7 @@ class FullerTri(CtrlPtsProjection):
             return fixbary_subtract(bary)
 
     def transform(self, lon, lat):
+        lon + 0#will TypeError if lon is not a number
         vtestpt = UnitVector.transform(lon, lat)
         ctrlpts_v = self.ctrlpts_v
         b = []
@@ -982,71 +994,125 @@ class FullerTri(CtrlPtsProjection):
             return self._invtransform_normalize(b1, b2, b3)
         else:
             return self._invtransform_subtract(b1, b2, b3)
-        
+
     def _invtransform_subtract(self, b1, b2, b3):
-        bi = np.array([b1, b2, b3])
-        v0 = self.ctrlpts_v[..., 0]
-        v1 = self.ctrlpts_v[..., 1]
-        v2 = self.ctrlpts_v[..., 2]        
-        def objective(k):
-            v01 = slerp(v1, v0, bi[0] + k)
-            v02 = slerp(v2, v0, bi[0] + k)
-            cx12 = np.cross(v01, v02)
-            v12 = slerp(v2, v1, bi[1] + k)
-            v10 = slerp(v0, v1, bi[1] + k)
-            cx20 = np.cross(v12, v10)
-            v20 = slerp(v0, v2, bi[2] + k)
-            v21 = slerp(v1, v2, bi[2] + k)
-            cx01 = np.cross(v20, v21)
-            
-            v0x = normalize(np.cross(cx20, cx01))
-            v1x = normalize(np.cross(cx01, cx12))
-            #v2x = normalize(np.cross(cx12, cx20))
-            return np.linalg.norm(v0x-v1x)
-        
-        res = minimize_scalar(objective, bracket=[0,0.1])
-        k = res.x
-        v12 = slerp(v2, v1, bi[1] + k)
-        v10 = slerp(v0, v1, bi[1] + k)
-        cx20 = np.cross(v12, v10)
-        v20 = slerp(v0, v2, bi[2] + k)
-        v21 = slerp(v1, v2, bi[2] + k)
-        cx01 = np.cross(v20, v21)
-        
-        v0x = normalize(np.cross(cx20, cx01))
-        return UnitVector.invtransform_v(v0x)
-    
-    def _invtransform_normalize(self, b1, b2, b3):
+        b1 + 0#will TypeError if not a number
         bi = np.array([b1, b2, b3])
         v0 = self.ctrlpts_v[..., 0]
         v1 = self.ctrlpts_v[..., 1]
         v2 = self.ctrlpts_v[..., 2]
         def objective(k):
-            v01 = slerp(v1, v0, bi[0] * k)
-            v02 = slerp(v2, v0, bi[0] * k)
-            cx12 = normalize(np.cross(v01, v02))
-            v12 = slerp(v2, v1, bi[1] * k)
-            v10 = slerp(v0, v1, bi[1] * k)
-            cx20 = normalize(np.cross(v12, v10))
-            v20 = slerp(v0, v2, bi[2] * k)
-            v21 = slerp(v1, v2, bi[2] * k)
-            cx01 = normalize(np.cross(v20, v21))
+            f0 = np.where(bi[0] + k > 1, -1, 1)
+            f1 = np.where(bi[1] + k > 1, -1, 1)
+            f2 = np.where(bi[2] + k > 1, -1, 1)    
+            v01 = slerp(v1, v0, bi[0] + k)
+            v02 = slerp(v2, v0, bi[0] + k)
+            cx12 = np.cross(v01, v02)*f0
+            v12 = slerp(v2, v1, bi[1] + k)
+            v10 = slerp(v0, v1, bi[1] + k)
+            cx20 = np.cross(v12, v10)*f1
+            v20 = slerp(v0, v2, bi[2] + k)
+            v21 = slerp(v1, v2, bi[2] + k)
+            cx01 = np.cross(v20, v21)*f2
+
             v0x = normalize(np.cross(cx20, cx01))
             v1x = normalize(np.cross(cx01, cx12))
-            #v2x = normalize(np.cross(cx12, cx20))
-            return np.linalg.norm(v0x-v1x)
-        
+            v2x = normalize(np.cross(cx12, cx20))
+            #i think this is slightly more robust than the triple product
+            return (np.linalg.norm(v0x-v1x)
+                    + np.linalg.norm(v1x-v2x)
+                    + np.linalg.norm(v2x-v0x))
+            #return cx12 @ v0x
+        if b1 == 0 or b2 == 0 or b3 == 0:
+            k = 0
+        elif np.allclose(self.sides, np.roll(self.sides, 1)):
+            kx = self._k_eq(b1, b2, b3)
+            k = kx[2]#FIXME is 2 always the right one?
+        else:
+            #FIXME why is this so freakin slow
+            res = minimize_scalar(objective, bracket=[0,0.1])
+            k = res.x
+        #f0 = np.where(bi[0] + k > 1, -1, 1)
+        f1 = np.where(bi[1] + k > 1, -1, 1)
+        f2 = np.where(bi[2] + k > 1, -1, 1)                   
+        #v01 = slerp(v1, v0, bi[0] + k)
+        #v02 = slerp(v2, v0, bi[0] + k)
+        #cx12 = np.cross(v01, v02)*f0
+        v12 = slerp(v2, v1, bi[1] + k)
+        v10 = slerp(v0, v1, bi[1] + k)
+        cx20 = np.cross(v12, v10)*f1
+        v20 = slerp(v0, v2, bi[2] + k)
+        v21 = slerp(v1, v2, bi[2] + k)
+        cx01 = np.cross(v20, v21)*f2
+
+        v0x = normalize(np.cross(cx20, cx01))
+        #v1x = normalize(np.cross(cx01, cx12))
+        #v2x = normalize(np.cross(cx12, cx20))
+        v0x = self._fix_corners_inv_bary(bi, v0x)
+        return UnitVector.invtransform_v(v0x)
+
+    def _k_eq(self, b1, b2, b3):
+        w = self.ca.mean()
+        bi = np.array([b1, b2, b3])
+        cw = np.cos(w)
+        #sw = np.sin(w)
+        cbw = np.cos(bi*w)
+        sbw = np.sin(bi*w)
+        pcbw = np.product(cbw)
+        psbw = np.product(sbw)
+        scc = np.sum(sbw * np.roll(cbw, -1) * np.roll(cbw, 1))
+        css = np.sum(cbw*np.roll(sbw, -1)*np.roll(sbw, 1))
+        objw2 = np.array([2*pcbw - cw - 1,
+                          2*scc,
+                          3*pcbw + 3 - css,
+                          2*psbw])
+        rts = np.roots(objw2)
+        return np.arctan(rts)/w
+
+    def _invtransform_normalize(self, b1, b2, b3):
+        b1 + 0#will TypeError if not a number
+        bi = np.array([b1, b2, b3])
+        v0 = self.ctrlpts_v[..., 0]
+        v1 = self.ctrlpts_v[..., 1]
+        v2 = self.ctrlpts_v[..., 2]
+        def objective(k):
+            f0 = np.where(bi[0] * k > 1, -1, 1)
+            f1 = np.where(bi[1] * k > 1, -1, 1)
+            f2 = np.where(bi[2] * k > 1, -1, 1)                
+            v01 = slerp(v1, v0, bi[0] * k)
+            v02 = slerp(v2, v0, bi[0] * k)
+            cx12 = normalize(np.cross(v01, v02))*f0
+            v12 = slerp(v2, v1, bi[1] * k)
+            v10 = slerp(v0, v1, bi[1] * k)
+            cx20 = normalize(np.cross(v12, v10))*f1
+            v20 = slerp(v0, v2, bi[2] * k)
+            v21 = slerp(v1, v2, bi[2] * k)
+            cx01 = normalize(np.cross(v20, v21))*f2
+            v0x = normalize(np.cross(cx20, cx01))
+            v1x = normalize(np.cross(cx01, cx12))
+            v2x = normalize(np.cross(cx12, cx20))
+            #i think this is slightly more robust than the triple product
+            return (np.linalg.norm(v0x-v1x)
+                    + np.linalg.norm(v1x-v2x)
+                    + np.linalg.norm(v2x-v0x))        
+
         res = minimize_scalar(objective, bracket=[1,1.1])
         k = res.x
+        #f0 = np.where(bi[0] * k > 1, -1, 1)
+        f1 = np.where(bi[1] * k > 1, -1, 1)
+        f2 = np.where(bi[2] * k > 1, -1, 1)                
+        
         v12 = slerp(v2, v1, bi[1] * k)
         v10 = slerp(v0, v1, bi[1] * k)
-        cx20 = normalize(np.cross(v12, v10))
+        cx20 = normalize(np.cross(v12, v10))*f1
         v20 = slerp(v0, v2, bi[2] * k)
         v21 = slerp(v1, v2, bi[2] * k)
-        cx01 = normalize(np.cross(v20, v21))
-        
+        cx01 = normalize(np.cross(v20, v21))*f2
+
         v0x = normalize(np.cross(cx20, cx01))
+        v0x = self._fix_corners_inv_bary(bi, v0x)
         return UnitVector.invtransform_v(v0x)
+    
 #%%
 class FullerQuad(CtrlPtsProjection):
     nctrlpts = 4
@@ -1056,12 +1122,12 @@ class FullerQuad(CtrlPtsProjection):
         ctrlpts_v = self.ctrlpts_v
         lon + 0#will TypeError if lon is not a number
         result = []
-        for p in [(1,3),(3,1)]:
+        for p in [(0, 1, 2, 3),(1, 2, 3, 0)]:
             #FIXME can calculate a lot of this stuff beforehand
-            v0 = ctrlpts_v[..., 0]
-            v1 = ctrlpts_v[..., p[0]]
-            v2 = ctrlpts_v[..., 2]
-            v3 = ctrlpts_v[..., p[1]]
+            v0 = ctrlpts_v[..., p[0]]
+            v1 = ctrlpts_v[..., p[1]]
+            v2 = ctrlpts_v[..., p[2]]
+            v3 = ctrlpts_v[..., p[3]]
             vt01 = vtestpt @ np.cross(v0, v1)
             vt12 = vtestpt @ np.cross(v1, v2)
             vt23 = vtestpt @ np.cross(v2, v3)
@@ -1128,25 +1194,13 @@ class FullerQuad(CtrlPtsProjection):
             num = -c
             denom = b
             j = np.arctan2(num,denom)/w
-            return j            
+            return j
         else:
             desc = b**2 - 4*a*c
             nump = -b + sqrt(desc)
-            numn = -b - sqrt(desc)
             denom= 2*a
             jp = np.arctan2(nump,denom)/w
-            jn = np.arctan2(numn,denom)/w
-            #FIXME there must be a more efficient way to do this
-            v01p = slerp(v0, v1, jp)
-            v32p = slerp(v3, v2, jp)
-            v01n = slerp(v0, v1, jn)
-            v32n = slerp(v3, v2, jn)
-            cosp = v01p @ v32p
-            cosn = v01n @ v32n
-            if cosp > cosn :
-                return jn
-            else:
-                return jp
+            return jp
 
     def invtransform(self, u, v):
         a = self.ctrlpts_v[..., 0]
@@ -1162,7 +1216,7 @@ class FullerQuad(CtrlPtsProjection):
 #%%
 class SnyderEA(CtrlPtsProjection):
     nctrlpts = 3
-    
+
     def __init__(self, ctrlpts):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
@@ -1242,7 +1296,7 @@ class SnyderEA(CtrlPtsProjection):
 
 class SnyderEASym(CtrlPtsProjection):
     nctrlpts = 3
-    
+
     """this doesn't really accomplish anything"""
     def __init__(self, ctrlpts):
         """Parameters:
@@ -1267,32 +1321,32 @@ class SnyderEASym(CtrlPtsProjection):
             except NameError:
                 beta = b
         return beta/3
-    
+
     def invtransform(self, *args, **kwargs):
         return NotImplemented
-    
+
 #class ConformalTri(CtrlPtsProjection):
 #    pass
 
 #%% inverse-only ones
 class ReverseFullerTri(CtrlPtsProjection):
     nctrlpts = 3
-    
+
     def __init__(self, ctrlpts, tweak=False):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
-        self.tweak = tweak    
-    
+        self.tweak = tweak
+
     def transform(self, *args, **kwargs):
         return NotImplemented
-    
+
     def invtransform(self, b1, b2, b3):
         bi = np.array([b1, b2, b3])
         v0 = self.ctrlpts_v[..., 0]
         v1 = self.ctrlpts_v[..., 1]
-        v2 = self.ctrlpts_v[..., 2]        
+        v2 = self.ctrlpts_v[..., 2]
         v01 = slerp(v1, v0, bi[0])
         v02 = slerp(v2, v0, bi[0])
         cx12 = normalize(np.cross(v01, v02))
@@ -1302,7 +1356,7 @@ class ReverseFullerTri(CtrlPtsProjection):
         v20 = slerp(v0, v2, bi[2])
         v21 = slerp(v1, v2, bi[2])
         cx01 = normalize(np.cross(v20, v21))
-        
+
         v0x = np.cross(cx20, cx01)
         v1x = np.cross(cx01, cx12)
         v2x = np.cross(cx12, cx20)
@@ -1311,7 +1365,7 @@ class ReverseFullerTri(CtrlPtsProjection):
             vx = normalize(vx)
         inv = vx.mean(axis=-1)
         return UnitVector.invtransform_v(inv)
-    
+
 class NSlerpTri(CtrlPtsProjection):
     nctrlpts = 3
     def __init__(self, ctrlpts, pow=1, eps=0):
@@ -1320,14 +1374,14 @@ class NSlerpTri(CtrlPtsProjection):
         """
         super().__init__(ctrlpts)
         self.pow = pow
-        angles = self.sides        
+        angles = self.sides
         self.eq = (np.max(angles) - np.min(angles)) <= eps
         if self.eq:
             self.avangle = np.mean(angles)
 
     def transform(self, *args, **kwargs):
         return NotImplemented
-        
+
     def _tri_naive_slerp_angles(self, bary):
         """Interpolates the angle factor so that it's equal to the
         angle between pts 1 and 2 when beta_3=0, etc.
@@ -1355,20 +1409,20 @@ class NSlerpTri(CtrlPtsProjection):
 
 class NSlerpQuad(CtrlPtsProjection):
     nctrlpts = 4
-    
+
     def __init__(self, ctrlpts, pow=1, eps=0):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
         self.pow = pow
-        angles = self.sides        
+        angles = self.sides
         self.eq = (np.max(angles) - np.min(angles)) <= eps
         if self.eq:
-            self.avangle = np.mean(angles)    
-    
+            self.avangle = np.mean(angles)
+
     def transform(self, *args, **kwargs):
-        return NotImplemented    
+        return NotImplemented
 
     def _angles_interp(self, x, y):
         """Interpolates the angle factors separately so that it's equal to the
@@ -1414,14 +1468,14 @@ class NSlerpQuad2(CtrlPtsProjection):
         """
         super().__init__(ctrlpts)
         self.pow = pow
-        angles = self.sides        
+        angles = self.sides
         self.eq = (np.max(angles) - np.min(angles)) <= eps
         if self.eq:
-            self.avangle = np.mean(angles)  
-            
+            self.avangle = np.mean(angles)
+
     def transform(self, *args, **kwargs):
         return NotImplemented
-        
+
     def _angles_interp(self, x, y):
         """Interpolates the angle factor together that it's equal to the
         angle between pts 1 and 2 when y=-1, etc.
@@ -1457,7 +1511,7 @@ class NSlerpQuad2(CtrlPtsProjection):
 
 class EllipticalQuad(CtrlPtsProjection):
     """An extension of the elliptical map.
-    """    
+    """
     nctrlpts = 4
 
     def __init__(self, ctrlpts, eps=1E-6):
@@ -1473,7 +1527,7 @@ class EllipticalQuad(CtrlPtsProjection):
 
     def transform(self, *args, **kwargs):
         return NotImplemented
-    
+
     def invtransform_v(self, v):
         #FIXME needs rotations
         rot_base = self.ctrlpts_v
