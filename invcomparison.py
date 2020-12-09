@@ -14,6 +14,8 @@ import pyproj
 #import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.optimize import minimize_scalar#minimize, root_scalar
+import copy
 
 #import os
 #os.chdir('Code/mapproj')
@@ -56,11 +58,68 @@ testshape3 = geopandas.GeoSeries(Polygon(shell=[(1,0,0),
                                                 (0.25,0.75,0),
                                                 (0,1,0),
                                                 (0,0,1)]))
+#%% optimize
+projs = {}
+nctrlpts = {}
+#invbary = {}
+invframe = {}
+testshapet = {}
 
+projs_k = {'Naive Slerp Tri':  mapproj.NSlerpTri(actrlpts3, k=1),#add different k vals
+           'Naive Slerp Tri~': mapproj.NSlerpTri(actrlpts3, k=1, exact=False),#add different k vals         
+           'Naive Slerp Quad': mapproj.NSlerpQuad(actrlpts4, k=1),
+           'Naive Slerp Quad~': mapproj.NSlerpQuad(actrlpts4, k=1, exact=False),
+           'Naive Slerp Quad 2':  mapproj.NSlerpQuad2(actrlpts4, k=1),
+           'Naive Slerp Quad 2~': mapproj.NSlerpQuad2(actrlpts4, k=1, exact=False),
+           'Elliptical':  mapproj.EllipticalQuad(actrlpts4, k=1),
+           'Elliptical~': mapproj.EllipticalQuad(actrlpts4, k=1, exact=False),
+             }
+for name in projs_k:
+    mp = projs_k[name]
+    i = mp.nctrlpts
+    #nctrlpts[name] = i
+    if i == 3:
+        gridp = gridp3
+    else:
+        gridp = gridp4
+    def objective_a(k):
+        mp.k = k
+        iv = mapproj.transeach(mp.invtransform, gridp)
+        arealist = []
+        for p in iv.geometry:
+            area, _ = geod.geometry_area_perimeter(p)
+            arealist.append(area)
+        return max(arealist)/min(arealist)
+    def objective_l(k):
+        mp.k = k
+        iv = mapproj.transeach(mp.invtransform, gridp)
+        alist = []
+        for p in iv.geometry:
+            coords = np.array(p.exterior.xy)
+            l = geod.line_lengths(coords[0], coords[1])
+            aspect = max(l)/min(l)
+            alist.append(aspect)            
+        return max(alist)
+    def objective_l2(k):
+        mp.k = k
+        iv = mapproj.transeach(mp.invtransform, gridp)
+        alist = []
+        for p in iv.geometry:
+            coords = np.array(p.exterior.xy)
+            l = geod.line_lengths(coords[0], coords[1])
+            aspect = max(l)/min(l)
+            alist.append(aspect)            
+        return np.mean(alist)
+    objs = [objective_a, objective_l, objective_l2]
+    for obj in objs:
+        res = minimize_scalar(obj, bracket=[0,1])
+        mp2 = copy.copy(mp)
+        mp2.k = res.x
+        print(name, res.x)
+        if np.round(res.x, 7) not in [0,1]:
+            projs[name + ' ' + str(mp2.k)] = mp2
 #%%
-projs = {#'Conformal':          mapproj.ConformalTri3(actrlpts3, tgtpts),#slow
-         #'Linear Trimetric':   mapproj.LinearTrimetric(actrlpts3, geod),#no
-         'Areal':               mapproj.Areal(actrlpts3),
+projs.update({'Areal':               mapproj.Areal(actrlpts3),
          'Fuller explicit':     mapproj.FullerEq(actrlpts3),
          #'Fuller':             mapproj.Fuller(actrlpts3, tweak=False),
          #'Fuller Tweaked':     mapproj.Fuller(actrlpts3, tweak=True),
@@ -71,19 +130,24 @@ projs = {#'Conformal':          mapproj.ConformalTri3(actrlpts3, tgtpts),#slow
          #'Alfredo':            mapproj.Alfredo(actrlpts3),#polygonal?
          #'Alfredo Tweaked':    mapproj.Alfredo(actrlpts3, tweak=True),#not polygonal
          #'SEA':                 mapproj.SnyderEA(actrlpts3),
-         'Reverse Fuller':     mapproj.ReverseFuller(actrlpts3),
-         'Naive Slerp Tri':     mapproj.NSlerpTri(actrlpts3),#add different k vals
+         'Reverse Fuller':      mapproj.ReverseFuller(actrlpts3),
+         'Reverse Fuller Tweak': mapproj.ReverseFuller(actrlpts3, tweak=True),
+         'Naive Slerp Tri 0':  mapproj.NSlerpTri(actrlpts3, k=0),#add different k vals
+         'Naive Slerp Tri 1':  mapproj.NSlerpTri(actrlpts3, k=1),#add different k vals
+         'Naive Slerp Tri~ 1': mapproj.NSlerpTri(actrlpts3, k=1, exact=False),#add different k vals         
          'Crider':              mapproj.CriderEq(actrlpts4),
-         'Naive Slerp Quad':    mapproj.NSlerpQuad(actrlpts4),
-         'Naive Slerp Quad 2':  mapproj.NSlerpQuad2(actrlpts4),
-         'Elliptical':          mapproj.EllipticalQuad(actrlpts4),
+         #'Naive Slerp Quad k0': mapproj.NSlerpQuad(actrlpts4, k=0),
+         'Naive Slerp Quad 1': mapproj.NSlerpQuad(actrlpts4, k=1),
+         'Naive Slerp Quad~ 1': mapproj.NSlerpQuad(actrlpts4, k=1, exact=False),
+         'Naive Slerp Quad 2 0':  mapproj.NSlerpQuad2(actrlpts4, k=0),
+         'Naive Slerp Quad 2 1':  mapproj.NSlerpQuad2(actrlpts4, k=1),
+         'Naive Slerp Quad 2~ 1': mapproj.NSlerpQuad2(actrlpts4, k=1, exact=False),
+         'Elliptical 0':  mapproj.EllipticalQuad(actrlpts4, k=0),
+         'Elliptical 1':  mapproj.EllipticalQuad(actrlpts4, k=1),
+         'Elliptical~ 1': mapproj.EllipticalQuad(actrlpts4, k=1, exact=False),
          'Snyder Equal-Area 4':  mapproj.SnyderEA4(actrlpts4)
-         }
+         })
 
-nctrlpts = {}
-#invbary = {}
-invframe = {}
-testshapet = {}
 for name in projs:
     print(name)
     mp = projs[name]
@@ -96,8 +160,62 @@ for name in projs:
     elif i == 4:
         invframe[name] = mapproj.transeach(mp.invtransform, gridp4)
         testshapet[name] = mapproj.transeach(mp.invtransform, testshape4)
-
 #%%
+testshapez3 = mapproj.transeach(bp.transform, testshape3)
+gridpz3 = mapproj.transeach(bp.transform, gridp3)
+projs2 = {'Conformal':        mapproj.ConformalTri3(actrlpts3, tgtpts3),#slow
+         #'Linear Trimetric': mapproj.LinearTrimetric(actrlpts3, geod),#no
+         }
+         
+for name in projs2:
+    print(name)
+    mp = projs2[name]
+    i = mp.nctrlpts
+    nctrlpts[name] = i
+    #invbary[name] = mapproj.transeach(mp.invtransform, bary)
+    if i == 3:
+        invframe[name] = mapproj.transeach(mp.invtransform, gridpz3)
+        testshapet[name] = mapproj.transeach(mp.invtransform, testshapez3)
+    elif i == 4:
+        invframe[name] = mapproj.transeach(mp.invtransform, gridpz4)
+        testshapet[name] = mapproj.transeach(mp.invtransform, testshapez4)
+#%%
+crs = {'proj': 'longlat', 'datum': 'WGS84'}
+crs3= {'proj': 'gnom',
+      'lat_0': 10.812316963571709,
+      'lon_0': 15}
+ctrlpts3 = mapproj.arraytoptseries(actrlpts3)
+ctrlpts3.crs = crs
+tgtptsg3 = ctrlpts3.to_crs(crs3)
+bg = mapproj.Barycentric(mapproj.ptseriestoarray(tgtptsg3))
+gridpzz3 = mapproj.transeach(bg.transform, gridp3)
+gridpzz3.crs = crs3
+testshapezz3 = mapproj.transeach(bg.transform, testshape3)
+testshapezz3.crs = crs3
+name = 'Gnomonic 3'
+invframe[name] = gridpzz3.to_crs(crs)
+testshapet[name] = testshapezz3.to_crs(crs)
+nctrlpts[name] = 3
+
+crs4= {'proj': 'gnom',
+      'lat_0': 0,
+      'lon_0': 15}
+ctrlpts4 = mapproj.arraytoptseries(actrlpts4)
+ctrlpts4.crs = crs
+tgtptsg4 = ctrlpts4.to_crs(crs4)
+scale = np.array(tgtptsg4[1].xy[0])
+def transform_01(x, y, scale=scale):
+    return (2*x - 1)*scale, (2*y - 1)*scale
+gridpzz4 = mapproj.transeach(transform_01, gridp4)
+gridpzz4.crs = crs4
+testshapezz4 = mapproj.transeach(transform_01, testshape4)
+testshapezz4.crs = crs4
+name = 'Gnomonic 4'
+invframe[name] = gridpzz4.to_crs(crs)
+testshapet[name] = testshapezz4.to_crs(crs)
+nctrlpts[name] = 4
+#%%
+ms = ['area', 'lengthrat']#'perim', 'anglediff',
 #atotal, ptotal = geod.polygon_area_perimeter(*actrlpts)
 areas = {}
 perims = {}
@@ -147,9 +265,11 @@ for name in invframe:
                                 'anglediff': anglediff[name],
                                 'lengthrat': lengthrat[name]})
     invframe[name] = iv
-#%%
-ms = ['area', 'lengthrat']#'perim', 'anglediff',
-for name, mp in projs.items():
+    
+#%% plots
+for name in invframe:
+    print(name)
+    n = nctrlpts[name]
     ts = testshapet[name]
     ib = invframe[name]
 
@@ -166,14 +286,14 @@ for name, mp in projs.items():
         ax.set_title(mn)
 
     for ax in axes:
-        if mp.nctrlpts == 3:
+        if n == 3:
             ctrlpoly3.plot(ax=ax, color='g')
-        elif mp.nctrlpts == 4:
+        elif n == 4:
             ctrlpoly4.plot(ax=ax, color='g')
 
         #ax.legend(loc='best')
 
-#%%
+#%% table
 projnames = areas.keys()
 index = pd.MultiIndex.from_product([projnames, ms],
                                    names=['Projection', 'Measure'])
@@ -187,13 +307,52 @@ for name, iv in invframe.items():
     b = iv.lengthrat
     dat.loc[name, 'lengthrat'] = [b.min(), b.max(), b.mean()]
 
+ns = np.array([x for x in nctrlpts.values()])
+index = ns == 3
+#%% efficiency
+areas = dat.xs('area', level=1).measure
+lens = dat.xs('lengthrat', level=1).measure
+areasi = areas[index]
+lensi = lens[index]
+areasni = areas[~index]
+lensni = lens[~index]
+
+efi = np.ones(len(areasi), dtype=bool)
+for a,l in zip(areasi, lensi):
+    efi[(areasi > a) & (lensi > l)] = False
+    
+efni = np.ones(len(areasni), dtype=bool)
+for a,l in zip(areasni, lensni):
+    efni[(areasni > a) & (lensni > l)] = False
+    
+#%%
 for m in ms:
     print(m)
-    print(dat.xs(m, level=1).sort_values('measure'))
+    print(dat.xs(m, level=1)[index][efi].sort_values(['measure', 'max']))
+for m in ms:
+    print(m)
+    print(dat.xs(m, level=1)[~index][efni].sort_values(['measure', 'max']))
 
 #in limit as grid cells get small
+#icosahedron:
 #grid cells near vertex has interior angles 2pi/5, 3pi/10, 3pi/10
 #so by law of sines
 #a/sin(2pi/5) = b/sin(3pi/10)
 #thus benchmark length ratio is
-b = np.sin(2*np.pi/5)/np.sin(3*np.pi/10) - 1
+b3 = np.sin(2*np.pi/5)/np.sin(3*np.pi/10) - 1
+cm3 = b3*3/len(gridp3)
+
+#%%
+fig, axes = plt.subplots(nrows = 2, figsize=(10, 8))
+ax1, ax2 = axes
+ax1.scatter(areasi +1, lensi, c=efi)
+for n, x, y in zip(areas.index[index][efi], areas[index][efi] + 1, 
+                   lens[index][efi]):
+    ax1.annotate(n, (x, y), ha='center', va='bottom')
+ax2.scatter(areasni +1, lensni, c=efni)
+for n, x, y in zip(areas.index[~index][efni], areas[~index][efni] + 1, 
+                   lens[~index][efni]):
+    ax2.annotate(n, (x, y), ha='center', va='bottom')
+
+ax1.set_xscale('log')
+ax2.set_xscale('log')

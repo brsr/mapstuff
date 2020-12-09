@@ -11,7 +11,7 @@ import pandas as pd
 import shapely
 from shapely.geometry import LineString, Polygon, Point
 import pyproj
-import homography
+#import homography
 import warnings
 import numpy as np
 from abc import ABC
@@ -20,10 +20,10 @@ from scipy.special import hyp2f1, gamma, ellipj, ellipk, ellipkinc
 
 
 #TODO:
-#try a linear combination of projections
 #vectorize all the things
 #find a better implementation of conformal
 #   (some kind of circle-packing thing?)
+#repeated subdivision
 
 #arange3 = np.arange(3)
 #FIRST AXIS IS SPATIAL
@@ -125,7 +125,6 @@ def arraytoptseries(arr, crs={'epsg': '4326'}):
     #result.crs = crs
     return result
 
-    return grat
 def transeach(func, geoms):
     """Transform each element of geoms using the function func."""
     plist = []
@@ -780,6 +779,8 @@ class UVMapProjection(CtrlPtsProjection):
 #%% not-polygonal projections
 class ChambTrimetric(CtrlPtsProjection):
     """Chamberlin trimetric projection"""
+    #FIXME this implementation fails for control triangles with 
+    #high aspect ratios
     nctrlpts = 3
 
     def __init__(self, ctrlpts, geod=_unitsphgeod):
@@ -861,10 +862,7 @@ class LinearTrimetric(CtrlPtsProjection):
         pyproj.Geod(a=1,b=1).
         """
         super().__init__(ctrlpts, geod)
-        vctrl = self.ctrlpts_v
         self.radius = ((geod.a**(3/2) + geod.b**(3/2))/2)**(2/3)
-        self.invctrlvector = np.linalg.pinv(vctrl)
-        self.invperpmatrix = np.linalg.pinv(vctrl.T @ vctrl)
         self.tgtpts = trigivenlengths(self.sides)
         self.setmat()
         try:
@@ -872,6 +870,18 @@ class LinearTrimetric(CtrlPtsProjection):
             self.setmat()
         except ValueError:
             pass
+
+        vctrl = self.ctrlpts_v
+        try:
+            self.invctrlvector = np.linalg.inv(vctrl)
+            self.invperpmatrix = np.linalg.inv(vctrl.T @ vctrl)
+            cosrthmin = 1 / np.sqrt(self.invperpmatrix.sum())
+            #cosrthmin = cosrthmin if cosrthmin > 0 and cosrthmin <= 1 else 0
+        except np.linalg.LinAlgError:
+            self.invctrlvector = np.eye(3)
+            self.invperpmatrix = np.eye(3)
+            cosrthmin = 0
+        self.hminall = np.arccos(cosrthmin)**2
 
     def setmat(self, tgtpts=None):
         """Set matrices that use tgtpts"""
@@ -904,7 +914,8 @@ class LinearTrimetric(CtrlPtsProjection):
         k = self.minv @ rpts/self.radius**2
         hmin = -np.min(k, axis=0)
         #hmax = np.pi**2-np.max(k, axis=0)
-        h = hmin.copy()
+        hminall = self.hminall
+        h = np.where(hmin < hminall, hminall, hmin)
         for i in range(n):
             rsq = (k + h)
             #pos = rsq > 0
@@ -935,6 +946,7 @@ class LinearTrimetric(CtrlPtsProjection):
         rsq = (k[..., np.newaxis] + h)
         c = np.cos(np.sqrt(rsq))
         nm = np.einsum('i...,ij,j...', c, self.invperpmatrix, c)
+
         return h, nm
 
 class Alfredo(BarycentricMapProjection):
@@ -1018,7 +1030,8 @@ class Areal(BarycentricMapProjection):
         return result
 #%%
 class BisectTri(BarycentricMapProjection):
-
+    """Inverse is only approximate
+    """
     def __init__(self, ctrlpts):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
@@ -1115,6 +1128,7 @@ class BisectTri(BarycentricMapProjection):
         return UnitVector.invtransform_v(v)
 
 class BisectTri2(BarycentricMapProjection):
+    """Inverse is only approximate"""
 
     def __init__(self, ctrlpts):
         """Parameters:
@@ -1801,13 +1815,30 @@ class ConformalTri3(CtrlPtsProjection):
 
     def segment(self, x, y):
         bp = self.bp
-        bary = bp.transform(x, y)
+        bary = bp.invtransform(x, y)
         return bp.segment(bary)
 
     def invtransform(self, x, y):
         i = self.segment(x, y)
         sp = self.subproj[i]
         return sp.invtransform(x, y)
+
+class Double(CtrlPtsProjection):
+    def __init__(self, ctrlpts, proj1, proj2, t=0.5):
+        subproj = [proj1(ctrlpts), proj2(ctrlpts)]
+        self.nctrlpts = subproj[0].nctrlpts
+        if self.nctrlpts != subproj[1].nctrlpts:
+            raise ValueError('proj1 and proj2 have different # of ctrlpts')
+        super().__init__(ctrlpts)
+        self.subproj = subproj
+        self.t = t
+
+    def transform(self, lon, lat):
+        subproj = self.subproj
+        t = self.t
+        return ((1 - t)*subproj[0].transform(lon, lat)
+                + t*subproj[1].transform(lon, lat))
+
 #%% quad
 class CriderEq(UVMapProjection):
     def transform_v(self, ll):
@@ -2034,6 +2065,22 @@ class SnyderEA4(CtrlPtsProjection):
         return pj.invtransform(*bary)
 
 #%% inverse-only ones
+class KProjection(CtrlPtsProjection):
+    exact = True
+    k = 1
+    def extend(self, v):
+        normal = self.center_v
+        k = self.k
+        n = np.linalg.norm(v, axis=0, keepdims=True)
+        if self.exact:
+            vdotc = np.tensordot(v, normal, axes=(0, 0))[np.newaxis]
+            vdotv = n**2
+            p = -vdotc + sqrt(1 + vdotc**2 - vdotv)
+        else:
+            p = 1 - n
+        #print(v.shape, p.shape, normal.shape)
+        return v + k*p*normal[..., np.newaxis]
+
 class ReverseFuller(BarycentricMapProjection):
 
     def __init__(self, ctrlpts, tweak=False):
@@ -2071,14 +2118,15 @@ class ReverseFuller(BarycentricMapProjection):
         result = self._fix_corners_inv(bi, result)
         return UnitVector.invtransform_v(result)
 
-class NSlerpTri(BarycentricMapProjection):
+class NSlerpTri(BarycentricMapProjection, KProjection):
 
-    def __init__(self, ctrlpts, pow=1, eps=0):
-        #FIXME add k values
+    def __init__(self, ctrlpts, k=1, exact=True, pow=1, eps=0):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
+        self.k = k
+        self.exact = exact
         self.pow = pow
         angles = self.sides
         self.eq = (np.max(angles) - np.min(angles)) <= eps
@@ -2110,16 +2158,19 @@ class NSlerpTri(BarycentricMapProjection):
         angles = self._tri_naive_slerp_angles(bary)
         b = np.sin(angles * bary) / np.sin(angles)
         result = (b.T.dot(base.T)).T
+        result = self.extend(result)
         result = self._fix_corners_inv(bary, result)
         return UnitVector.invtransform_v(result)
 
-class NSlerpQuad(UVMapProjection):
+class NSlerpQuad(UVMapProjection, KProjection):
 
-    def __init__(self, ctrlpts, pow=1, eps=0):
+    def __init__(self, ctrlpts, k=1, exact=True, pow=1, eps=0):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
+        self.k = k
+        self.exact = exact
         self.pow = pow
         angles = self.sides
         self.eq = (np.max(angles) - np.min(angles)) <= eps
@@ -2161,16 +2212,19 @@ class NSlerpQuad(UVMapProjection):
         mat = (np.stack([a, b, c, d], axis=-1) /
             (np.sin(anglex)* np.sin(angley))[..., np.newaxis] )
         result = (mat.dot(self.ctrlpts_v.T)).T
+        result = self.extend(result)
         result = self._fix_corners_inv(x, y, result)
         return UnitVector.invtransform_v(result)
 
-class NSlerpQuad2(UVMapProjection):
+class NSlerpQuad2(UVMapProjection, KProjection):
 
-    def __init__(self, ctrlpts, pow=1, eps=0):
+    def __init__(self, ctrlpts, k=1, exact = True, pow=1, eps=0):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
+        self.k = k
+        self.exact = exact
         self.pow = pow
         angles = self.sides
         self.eq = (np.max(angles) - np.min(angles)) <= eps
@@ -2210,18 +2264,21 @@ class NSlerpQuad2(UVMapProjection):
         mat = (np.sin(np.stack([a, b, c, d], axis=-1)*angle) /
                np.sin(angle))
         result = (mat.dot(self.ctrlpts_v.T)).T
+        result = self.extend(result)
         result = self._fix_corners_inv(x, y, result)
         return UnitVector.invtransform_v(result)
 
-class EllipticalQuad(UVMapProjection):
+class EllipticalQuad(UVMapProjection, KProjection):
     """An extension of the elliptical map.
     """
 
-    def __init__(self, ctrlpts, eps=1E-6):
+    def __init__(self, ctrlpts, k=1, exact=True, eps=1E-6):
         """Parameters:
         ctrlpts: 2x4 Numpy array, latitude and longitude of each control point
         """
         super().__init__(ctrlpts)
+        self.k = k
+        self.exact = exact
         sidelength = self.sides
         assert abs(sidelength[0] - sidelength[2]) < eps
         assert abs(sidelength[1] - sidelength[3]) < eps
@@ -2261,6 +2318,7 @@ class EllipticalQuad(UVMapProjection):
         result = np.stack([u,v,w], axis=0)
         result = self.mat @ result
         #print(v, result)
+        result = self.extend(result)
         result = self._fix_corners_inv(uv[0], uv[1], result)
         return UnitVector.invtransform_v(result)
 

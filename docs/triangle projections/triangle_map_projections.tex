@@ -20,7 +20,7 @@ icosahedron.\cite{gray94} Snyder also presented equal-area maps on the
 tetrahedron, octahedron, and icosahedron.\cite{snyder92} The inverse mapping of
 each map projection can be used to inscribe a regular grid on a sphere, termed
 a geodesic grid (after Fuller's geodesic domes) or discrete global
-grid.\cite{williams}\cite{sahr98}. In Buckminster Fuller's construction of
+grid.\cite{williamson}\cite{sahr98}. In Buckminster Fuller's construction of
 geodesic domes, a method analogus to Fuller's map projection, but not the same,
 appears.\cite{kenner}
 
@@ -55,19 +55,17 @@ triangles and to be able to project a portion of the exterior of the triangle
 as well.
 
 \begin{table}
-\begin{tabular}[]{p{2cm}|p{2cm}p{2cm}p{1.4cm}p{1.4cm}p{5cm}}
-  Name & Control triangle area & Domain & Forward & Inverse & Notes \\
-  Gnomonic & $<$  & $<$ hemisphere & & & Preserves geodesics \\
-  Conformal & $\le$  & Control triangle and some area outside
-    & Eq. \ref{eq:conformal} & Eq. \ref{eq:conformal} & Not practically useful in given implementation\\
-  Generalized Snyder Equal-area & ? & Entire sphere, with interruptions & & & New generalization\\
-  Symmetrized Snyder & ? & Control triangle and some area outside &
-    & & New \\
-  Areal & $<$ & Sphere minus antipodal triangle & & & New\\
-  Fuller & $<$ & Hemisphere & & & \cite{kenner}\cite{gray94}\cite{gray95}\\
-  Reverse Fuller & $<$ & Hemisphere & & & \\
-  Naive slerp & $\le$ & Hemisphere & N/A &
-    Eq. \ref{eq:nst}  & Parameterized\\
+\begin{tabular}[]{p{3.5cm}|p{1.4cm}p{1.4cm}p{1cm}p{7cm}}
+  Name & Forward & Inverse & Cite & Notes \\
+  Gnomonic & & & \cite{snyder87} & Preserves geodesics  \\
+  Conformal & Eq. \ref{eq:conformal} & Eq. \ref{eq:conformal} & \cite{nehari57}\cite{nehari65}& Slow\\
+  Snyder Equal-area & & & \cite{snyder92} & New generalization given here\\
+  Symmetrized Snyder & & & New & \\
+  Areal & & & New &\\
+  Fuller & & & \cite{gray94}\cite{gray95} &\\
+  Linear Combination & & N/A & New & Parametrized family\\
+  Reverse Fuller & N/A & & \cite{kenner} &\\
+  Naive Slerp & N/A & Eq. \ref{eq:nst}  & New & Parametrized family\\
 \end{tabular}
 \caption{Map projections in this text.}
 \label{fig:projs}
@@ -82,7 +80,7 @@ conformal maps are best expressed in terms of complex variables.
 \subsection{Spherical geometry with 3-vectors}
 Some of the map projections to be discussed are better expressed
 in terms of a vector rather than latitude and longitude. This text will only
-cover pertinent details: a fuller description can be found in e.g. \cite{gade}.
+cover pertinent details: a fuller description can be found in e.g. \cite{strang80}.
 
 Let $\phi \in [-\frac{\pi}{2}, \frac{\pi}{2}]$ be latitude, and
 $\lambda \in (-\pi, \pi]$ be longitude. Let $\mathbf v = (x, y, z)$ be a vector
@@ -257,7 +255,7 @@ slightly flattened oblate ellipsoid. In general this text will only deal with
 the spherical approximation, but here we mention two considerations arising
 from that approximation.
 
-The vector form described in \cite{gade} corresponds to the geodetic latitude.
+The vector form described in e.g. \cite{strang12} corresponds to the geodetic latitude.
 The mapping between the sphere and the ellipsoid using geodetic latitude is not
 area-preserving, conformal, or distance-preserving, although the distortion is
 small on the Earth ellipsoid. If applying an area-preserving, conformal, or
@@ -323,7 +321,7 @@ The polygon on the sphere $R_s$ and the polygon in the plane $R_e$ can be
 basically anything, within the operating parameters of the projection and any
 special considerations that may apply. Even with respect to each other, one
 can be regular while the other is irregular, if that is desirable. Of course,
-this will influence the conformality and length distortion of the projection.
+this will influence the conformal and length distortion of the projection.
 
 The flip side of this freedom is that given an irregular $R_s$ there is not
 necessarily a single recommended way to choose $R_e$. One choice is to choose
@@ -831,11 +829,29 @@ point, we define a linear combination of the two projections:
 \end{equation}
 When $k=0$, that's the central projection: when $k=1$, it's the parallel
 projection. $p$ may be replaced by $\widetilde{p}$. If our goal is to optimize
-a measurement of the map projection, like conformality or area distortion, we
+a measurement of the map projection, like conformal or area distortion, we
 can do a 1-variable optimization on $k$.
 
-\subsection{Repeated subdivision}
-Method 3 in geodesic dome terms
+\subsection{Linear combination}
+
+Let $f_i (\mathbf v)$ be a sequence of map projections from a spherical
+polygon $R_s$
+to a spherical polygon $R_e$.
+Let $\mathbf v_i$ be the
+vertices of the spherical polygon. Furthermore, require that $f_i(\mathbf v_j)$
+takes the same value for all $i$ and $j$: the projections all maintain the same
+orientation of polygon. Then, let $w_i$ be a sequence of weights, possibly
+negative, such that $\sum w_i = 1$. It can be easily demonstrated that
+$g(\mathbf v) = \sum w_i f_i(\mathbf v)$ is also a map projection from $R_s$ to
+$R_e$. (This holds whether we think of $R_e$ in terms of barycentric coordinates
+or a planar Euclidean polygon.)
+
+If any individual $f_i(\mathbf v)$ is non-differentiable or has a singularity
+at any point or points, $g(\mathbf v)$ will generally be non-differentiable or
+have a singularity in the same place.
+
+Unfortunately, $g(\mathbf v)$ may not have a closed-form inverse, even if all
+of the contributing $f_i(\mathbf v)$ do.
 
 \section{Analysis}
 \subsection{From the sphere to the plane}

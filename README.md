@@ -9,7 +9,6 @@ Depends on:
 * Other packages that are required by those packages
 
 Map projections implemented here:
-* [Chamberlin trimetric](https://en.wikipedia.org/wiki/Chamberlin_trimetric_projection) (exists in PROJ, but I wanted to reimplement it for my own edification and comparison)
 * Linear trimetric (new, a variation of Chamberlin that's more numerically tractable)
 * Areal (new, an analog of [areal barycentric coordinates](https://en.wikipedia.org/wiki/Barycentric_coordinate_system) in the plane)
 * Fuller's projection (Crider, John E. "Exact Equations for Fuller's Map Projection and Inverse." Cartographica, vol. 43, no. 1, 2008, pp. 67-72. [DOI: 10.3138/carto.43.1.67](https://doi.org/10.3138/carto.43.1.67))

@@ -85,7 +85,15 @@ ctrlpoly4.crs = world.crs
 vcontrolpts3 = mapproj.UnitVector.transform_v(actrlpts3)
 vcontrolpts4 = mapproj.UnitVector.transform_v(actrlpts4)
 
-cx = np.cross(vcontrolpts4, np.roll(vcontrolpts4, -1, axis=1), axis=0)
+center3 = mapproj.UnitVector.invtransform_v(vcontrolpts3.sum(axis=1))[:,np.newaxis]
+small3 = np.concatenate([center3, actrlpts3[:,1:]], axis=1)
+center4 = np.array([15, 0])[:,np.newaxis]
+small4 = np.concatenate([center4, actrlpts4[:,:2]], axis=1)
+vsmall3 = mapproj.UnitVector.transform_v(small3)
+vsmall4 = mapproj.UnitVector.transform_v(small4)
+
+#cx = np.cross(vcontrolpts4, np.roll(vcontrolpts4, -1, axis=1), axis=0)
+
 #ctrlboundary = mapproj.geodesics(actrlpts[0], actrlpts[1], geod)
 #ctrlpoly = geopandas.GeoSeries(pd.concat([ctrlboundary, controlpts],
 #                                            ignore_index=True),
@@ -104,10 +112,13 @@ adegpts = np.array(np.meshgrid(np.linspace(-30, 55, 426),#171),
 adegpts = np.array(np.meshgrid(np.linspace(-45, 75, 121),
                                np.linspace(-60, 60, 121)))
 vdegpts = mapproj.UnitVector.transform_v(adegpts)
-insidemask3 = np.all(np.tensordot(np.linalg.inv(vcontrolpts3), vdegpts,
+#insidemask3 = np.all(np.tensordot(np.linalg.inv(vcontrolpts3), vdegpts,
+insidemask3 = np.all(np.tensordot(np.linalg.inv(vsmall3), vdegpts,
                                  axes=(1, 0)) > 0, axis=0)
-cx2 = np.einsum('ij,i...', cx, vdegpts)
-insidemask4 = np.all(cx2 > 0, axis=-1)
+#cx2 = np.einsum('ij,i...', cx, vdegpts)
+#insidemask4 = np.all(cx2 > 0, axis=-1)
+insidemask4 = np.all(np.tensordot(np.linalg.inv(vsmall4), vdegpts,
+                                 axes=(1, 0)) > 0, axis=0)
 
 degpts = mapproj.arraytoptseries(adegpts)#, crs=ucrs)
 degpts.crs = world.crs
@@ -203,7 +214,7 @@ for i, crs, ctrlpoly in zip([3, 4], [crs3, crs4], [ctrlpoly3, ctrlpoly4]):
     #pois      = poi.to_crs(crs)
     dp = mapproj.ptseriestoarray(degpts.to_crs(crs)).reshape(adegpts.shape)
     if i == 3:
-        gscale = cp[5].xy[1][0]/tgtpts3[1,2]  
+        gscale = cp[5].xy[1][0]/tgtpts3[1,2]
     elif i == 4:
         gscale = cp[7].xy[1][0]*2
     #gscale3 = pois[name][0].xy[1]/tgtpts3[1, 0]
@@ -221,9 +232,9 @@ for i, crs, ctrlpoly in zip([3, 4], [crs3, crs4], [ctrlpoly3, ctrlpoly4]):
 projs = {#'Chamberlin Trimetric': mapproj.ChambTrimetric(actrlpts, geod),#not polygonal
          #'Linear Trimetric':     mapproj.LinearTrimetric(actrlpts, geod),#not polygonal
          #'Conformal2': mapproj.ConformalTri(actrlpts, tgtpts),#buggy
-         #'Conformal': mapproj.ConformalTri3(actrlpts, tgtpts)
-        'Crider':              mapproj.CriderEq(actrlpts4),
-        'Snyder Equal-Area 4':  mapproj.SnyderEA4(actrlpts4)
+         'Conformal': mapproj.ConformalTri3(actrlpts3, tgtpts3),
+         'Crider':              mapproj.CriderEq(actrlpts4),
+         'Snyder Equal-Area 4':  mapproj.SnyderEA4(actrlpts4)
          }
 
 for name in projs:
@@ -251,7 +262,9 @@ baryprojs = {'Areal':                   mapproj.Areal(actrlpts3),
              'Snyder Symmetrized':      mapproj.SnyderEASym(actrlpts3),
              #'Alfredo':         mapproj.Alfredo(actrlpts3),#polygonal?
              #'Alfredo Tweaked': mapproj.Alfredo(actrlpts3, tweak=True),#not polygonal
-             #'SEA':     mapproj.SnyderEA(actrlpts3),
+             'Double':                  mapproj.Double(actrlpts3, 
+                                                       mapproj.FullerEq, 
+                                                       mapproj.Areal, t=7)
              }
 
 bp = mapproj.Barycentric(tgtpts3)
@@ -261,7 +274,7 @@ gratsb     = {}
 ctrlpolysb = {}
 #poisb      = {}
 degptssb   = {}
-for name in ['Bisect2']:#baryprojs:
+for name in baryprojs:
     print(name)
     mp = baryprojs[name]
     nctrlpts[name] = mp.nctrlpts
@@ -282,6 +295,93 @@ for name in ['Bisect2']:#baryprojs:
     ctrlpolys[name] = mapproj.transeach(bp.transform, ctrlpoly_b)
     #pois[name] = mapproj.transeach(bp.transform, poi_b)
     degptss[name] = bp.transform_v(degpts_b)
+    
+baryprojs2 = {'SEA3':     mapproj.SnyderEA(small3),
+              'SEA4':     mapproj.SnyderEA(small4)}
+
+tgtsmall3 = tgtpts3.copy()
+tgtsmall3[:,0] = 0
+tgtsmall4 = np.array([[0.5, 0, 1],
+                      [0.5, 0, 0]])
+bp2 = {'SEA3':     mapproj.Barycentric(tgtsmall3),
+       'SEA4':     mapproj.Barycentric(tgtsmall4)}
+nctrlpts['SEA3'] = 3
+nctrlpts['SEA4'] = 4
+for name in baryprojs2:
+    print(name)
+    mp = baryprojs2[name]
+    #nctrlpts[name] = mp.nctrlpts
+    world_b = mapproj.transeach(mp.transform, world.geometry)
+    grat_b = mapproj.transeach(mp.transform, grat)
+    if nctrlpts[name] == 3:
+        cpoly = ctrlpoly3
+    else:
+        cpoly = ctrlpoly4
+    ctrlpoly_b = mapproj.transeach(mp.transform, cpoly)
+    #poi_b = mapproj.transeach(mp.transform, poi)
+    degpts_b = mp.transform_v(adegpts)
+
+    worldsb[name] = world_b
+    gratsb[name] = grat_b
+    ctrlpolysb[name] = ctrlpoly_b
+    #poisb[name] = poi_b
+    degptssb[name] = degpts_b
+    
+    b = bp2[name]
+    worlds[name] = mapproj.transeach(b.transform, world_b)
+    grats[name] = mapproj.transeach(b.transform, grat_b)
+    ctrlpolys[name] = mapproj.transeach(b.transform, ctrlpoly_b)
+    #pois[name] = mapproj.transeach(b.transform, poi_b)
+    degptss[name] = b.transform_v(degpts_b)
+    
+#%% remove interpolations
+newdict = {}
+#    {k:v for (k, v) in a.items() if any(k.startswith(k2) for k2 in b)}
+for key, value in degptss.items():
+    if not '%' in key:
+        newdict[key] = value
+degptss = newdict
+#%% interpolated
+name1 = 'Areal'
+degpts1 = degptss[name1]
+
+name2 = 'Gnomonic 3'
+degpts2 = degptss[name2]
+
+intervals = np.linspace(-0.4, 0, 41)
+for t in intervals:
+    newname = str(round((1-t)*100)) + '% ' + name1 + ', ' + str(round(t*100)) + '% ' + name2
+    degpts = (1-t)*degpts1 + t*degpts2
+    degptss[newname] = degpts
+    nctrlpts[newname] = nctrlpts[name1]
+
+name1 = 'Fuller explicit'
+degpts_b1 = degptssb[name1]
+
+name2 = 'Areal'
+degpts_b2 = degptssb[name2]
+
+intervals = np.linspace(1, 7, 29)
+for t in intervals:
+    newname = str(round((1-t)*100)) + '% ' + name1 + ', ' + str(round(t*100)) + '% ' + name2
+    degpts_b = (1-t)*degpts_b1 + t*degpts_b2
+    degptssb[newname] = degpts_b
+    degptss[newname] = bp.transform_v(degpts_b)
+    nctrlpts[newname] = nctrlpts[name1]
+
+name1 = 'Gnomonic 3'
+degpts1 = degptss[name1]
+
+name2 = 'Conformal'
+degpts2 = degptss[name2]
+
+intervals = np.linspace(0, 1, 11)
+for t in intervals:
+    newname = str(round((1-t)*100)) + '% ' + name1 + ', ' + str(round(t*100)) + '% ' + name2
+    degpts = (1-t)*degpts1 + t*degpts2
+    degptss[newname] = degpts
+    nctrlpts[newname] = nctrlpts[name1]    
+
 #%% calculate metrics
 #anglemax = max(projs['Conformal'].ctrl_angles - 60)
 
@@ -295,7 +395,7 @@ for name in degptss:
     omega, scale = mapproj.omegascale(adegpts, degpts_t,
                                       geod, spacing=1)
     # if name == 'Gnomonic 3':
-    #     scalefactor = 1        
+    #     scalefactor = 1
     # elif name == 'Gnomonic 4':
     #     scalefactor = 1
     if n == 3:
@@ -319,7 +419,7 @@ for name in degptss:
 
 #%% aggregate stats
 ms = ['Scale', 'Angle']#, 'Distance', 'Pct Distance']
-projnames = worlds.keys()
+projnames = degptss.keys()
 #projnames = ['Conformal', 'Gnomonic', 'Bisect', 'Areal', 'Fuller explicit',
 #             'Fuller',
 #       'Fuller Tweaked', 'Snyder Symmetrized', 'Snyder Equal-Area',
@@ -377,24 +477,27 @@ scalerat = dat.xs('Scale', level=1)['max']/dat.xs('Scale', level=1)['min']
 def log_10_product(x, pos):
     return '%1i' % (x)
 tk = matplotlib.ticker.FuncFormatter(log_10_product)
-index = [0,] + list(range(4, len(scalerat)))
+index = [0,2] + list(range(5, 13))
 tk = matplotlib.ticker.FuncFormatter(log_10_product)
 fig, (ax1, ax2) = plt.subplots(nrows=2,  figsize=(8.5, 8))
 ax1.scatter(scalerat[index], angleave[index])
+ax1.plot(scalerat[14:], angleave[14:])
 ax1.set_xlabel('Scale')
 ax1.set_ylabel('Angle')
 ax1.set_xscale('log')
 ax1.set_ylim(0)
 ax1.xaxis.set_major_formatter(tk)
 for n, x, y in zip(angleave.index[index], scalerat[index], angleave[index]):
-    ax1.annotate(n, (x, y), ha='center', va='bottom')
-ax2.scatter(scalerat[1:4], angleave[1:4])
+    if '%' not in n:
+        ax1.annotate(n, (x, y), ha='center', va='bottom')
+index = [1, 3, 4, 13]
+ax2.scatter(scalerat[index], angleave[index])
 ax2.set_xlabel('Scale')
 ax2.set_ylabel('Angle')
 ax2.set_xscale('log')
 ax2.set_ylim(0)
 ax2.xaxis.set_major_formatter(tk)
-for n, x, y in zip(angleave.index[1:4], scalerat[1:4], angleave[1:4]):
+for n, x, y in zip(angleave.index[index], scalerat[index], angleave[index]):
     ax2.annotate(n, (x, y), ha='center', va='bottom')
 
 fig.savefig('docs/Summary stats.svg')
@@ -405,7 +508,7 @@ scalefmts = {'Scale':  {'Gnomonic 3': '%1.1f',
                        'Conformal2': '%1.1f',
                        'Bisect': '%1.2f',
                        'Bisect2': '%1.2f',
-                       
+                       'Double': '%1.1f',
                        'Areal': '%1.2f',
                        'Fuller explicit': '%1.2f',
                        'Fuller': '%1.2f',
@@ -416,7 +519,8 @@ scalefmts = {'Scale':  {'Gnomonic 3': '%1.1f',
                        'Snyder Equal-Area 4': '%1.3f',
                        'Alfredo': '%1.3f',
                        'Alfredo Tweaked': '%1.3f',
-                       'SEA': '%1.3f',
+                       'SEA3': '%1.3f',
+                       'SEA4': '%1.3f',                       
                        },
             'Angle':    '%1.0f',
             'Distance': '%1.0f',
@@ -431,6 +535,7 @@ levels = {'Scale':    {'Gnomonic 3':          np.linspace(0.9, 1.5, 7),
                        'Conformal2':         np.linspace(0.9, 1.5, 7),
                        'Bisect':            np.linspace(0.95, 1.15, 5),
                        'Bisect2':            np.linspace(0.95, 1.15, 5),
+                       'Double':            np.linspace(0.9, 1.5, 7),
                        'Areal':             np.linspace(0.95, 1.15, 5),
                        'Fuller explicit':   np.linspace(0.975, 1.075, 5),
                        'Fuller':    np.linspace(0.95, 1.05, 5),
@@ -441,11 +546,13 @@ levels = {'Scale':    {'Gnomonic 3':          np.linspace(0.9, 1.5, 7),
                        'Snyder Equal-Area 4': None,
                        'Alfredo': None,
                        'Alfredo Tweaked': None,
-                       'SEA': None},
+                       'SEA3': np.linspace(0.95, 1.01, 7),                       
+                       'SEA4': np.linspace(0.95, 1.01, 7)                       },
           'Angle':    {'Gnomonic 3':       np.linspace(0, 12, num=7),
                        'Gnomonic 4':          np.linspace(0, 30, num=7),
                        'Conformal 3':        np.linspace(0, 12, num=7),
                        'Conformal2':        np.linspace(0, 12, num=7),
+                       'Double':            np.linspace(0, 12, num=7),                       
                        'Bisect':            np.linspace(0, 12, num=7),
                        'Bisect2':            np.linspace(0, 12, num=7),
                        'Areal':             np.linspace(0, 12, num=7),
@@ -458,7 +565,8 @@ levels = {'Scale':    {'Gnomonic 3':          np.linspace(0.9, 1.5, 7),
                        'Snyder Equal-Area 4': np.linspace(0, 30, num=7),
                        'Alfredo': None,
                        'Alfredo Tweaked': None,
-                       'SEA': None},
+                       'SEA3': np.linspace(0, 18, num=7),
+                       'SEA4': np.linspace(0, 30, num=7)  },
           # 'Distance': np.linspace(-350, 200, 12),
           # 'Pct Distance': {'Gnomonic 3':          np.linspace(-0.05, 0.3, 8),
           #                  'Gnomonic 4':          np.linspace(-0.05, 0.3, 8),
@@ -478,7 +586,7 @@ levels = {'Scale':    {'Gnomonic 3':          np.linspace(0.9, 1.5, 7),
           #              'SEA': None}
           }
 
-for name in worlds:
+for name in ['SEA3', 'SEA4']:#worlds:
     print(name)
     #mp = projs[name]
     world_t = worlds[name]
@@ -513,11 +621,21 @@ for name in worlds:
                           cbt.maxx.max() + 0.05])
         ylim2 = np.array([cbt.miny.min() - 0.05,
                           cbt.maxy.max() + 0.05])
+        if ylim2[1] < 0.55:
+            ylim2[1] = 0.55        
+        xlim2 = np.clip(xlim2, -0.05, 1.05)
+        ylim2 = np.clip(ylim2, -0.05, 1.05)
     else:
         xlim2 = np.array([cbt.minx.min() * 1.1,
-                          cbt.maxx.max() * 1.1])
+                          cbt.maxy.max() * 1.1])
         ylim2 = np.array([cbt.miny.min() * 1.1,
                           cbt.maxy.max() * 1.1])
+        if ylim2[0] > -100:
+            ylim2[0] = -100
+        xlim2 = np.clip(xlim2, tgtpts3[0].min() * 1.1, tgtpts3[0].max() * 1.1)
+        ylim2 = np.clip(ylim2, tgtpts3[1].min() * 1.1, tgtpts3[1].max() * 1.1)
+        
+        
 
     ax2.set_xlim(xlim2)
     ax2.set_ylim(ylim2)
