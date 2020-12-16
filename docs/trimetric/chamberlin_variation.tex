@@ -1,48 +1,14 @@
 \documentclass[]{interact}
-
-\usepackage[outdir=./]{epstopdf}% To incorporate .eps illustrations using PDFLaTeX, etc.
-\usepackage[caption=false]{subfig}% Support for small, `sub' figures and tables
-%\usepackage[nolists,tablesfirst]{endfloat}% To `separate' figures and tables from text if required
-%\usepackage[doublespacing]{setspace}% To produce a `double spaced' document if required
-%\setlength\parindent{24pt}% To increase paragraph indentation when line spacing is doubled
-
-%\usepackage[longnamesfirst,sort]{natbib}% Citation support using natbib.sty
-%\bibpunct[, ]{(}{)}{;}{a}{,}{,}% Citation support using natbib.sty
-%\renewcommand\bibfont{\fontsize{10}{12}\selectfont}% To set the list of references in 10 point font using natbib.sty
-
-\usepackage[natbibapa,nodoi]{apacite}% Citation support using apacite.sty. Commands using natbib.sty MUST be deactivated first!
-%\setlength\bibhang{12pt}% To set the indentation in the list of references using apacite.sty. Commands using natbib.sty MUST be deactivated first!
-%\renewcommand\bibliographytypesize{\fontsize{10}{12}\selectfont}% To set the list of references in 10 point font using apacite.sty. Commands using natbib.sty MUST be deactivated first!
-
-%\theoremstyle{plain}% Theorem-like structures provided by amsthm.sty
-%\newtheorem{theorem}{Theorem}[section]
-%\newtheorem{lemma}[theorem]{Lemma}
-%\newtheorem{corollary}[theorem]{Corollary}
-%\newtheorem{proposition}[theorem]{Proposition}
-
-%\theoremstyle{definition}
-%\newtheorem{definition}[theorem]{Definition}
-%\newtheorem{example}[theorem]{Example}
-
-%\theoremstyle{remark}
-%\newtheorem{remark}{Remark}
-%\newtheorem{notation}{Notation}
-
-
-%\documentclass{amsart}[12pt]
-%\usepackage{amsmath, amsfonts, natbib, array, textcomp, graphicx}
-%\oddsidemargin=0in \evensidemargin=0in
-%\textwidth=6.6in \textheight=8.7in
-\usepackage{mathtools, fix-cm}%lmodern,
-% \usepackage{csvsimple}
+\usepackage[outdir=./]{epstopdf}
+\usepackage[natbibapa,nodoi]{apacite}
+\usepackage{mathtools, fix-cm}
 \title{A variation on the Chamberlin Trimetric map projection}
-%\author{B R S Recht}
-\author{Author}
-\date{November 2020}
+\author{Author: author@email.com, 55 XXXXXX St, XXXXXXXX, XX, 01234}
+\date{December 2020}
 
 \begin{document}
-
-\begin{abstract}
+\maketitle
+\begin{abstract}%max 250 words
    A variation of the Chamberlin Trimetric map projection is presented,
    termed the Matrix Trimetric projection. The Matrix Trimetric projection
    amounts to a linear transformation of the squares of the distances from a
@@ -50,39 +16,47 @@
    projection is simpler than the Chamberlin projection, and the inverse
    projection requires numerical iteration of only one parameter. Comparisons
    between the two projections are made using a representative list of control
-   points. In general the difference between the projections is small,
-   although the Chamberlin projection outperforms the Matrix projection on
-   measures of angle deformation and scale deformation,
-   and the reverse is true for a measure of distance deformation. %FIXME and?
+   points. The Chamberlin projection outperforms the Matrix projection on
+   measures of angle deformation and scale deformation, and the reverse is true
+   for a measure of distance deformation. However, the difference between the
+   projections is small, and the Matrix Trimetric projection is a viable
+   alternative for the use cases of the Chamberlin Trimetric projection.
 
+   \textit{Keywords: Chamberlin trimetric, Matrix trimetric, projection,
+   cartography, distortion, distance, }
+
+%FIXME compare to other recent papers in the Journal
 \end{abstract}
-\maketitle
 
 \section{Introduction}
-A compromise map projection is one that seeks to balance different kinds of distortion.
-Projections that eliminate one form of distortion often
-introduce a great deal of another form of distortion: allowing small
-amounts of distortion across multiple measures can produce more attractive maps.
-The Chamberlin Trimetric projection is such a map projection. It is named for
-Wellman Chamberlin, a chief cartographer for the National Geographic
+Any map projection must introduce some form of distortion. In particular, no
+map projection can be both conformal (angle-preserving) and equal-area.
+Projections that eliminate one form of distortion often introduce a great deal
+of another form of distortion. For example, the Mercator projection is a
+conformal projection that drastically enlarges areas near the poles.
+\citep{snyder87} A compromise map projection is one that seeks to
+balance different kinds of distortion; allowing small amounts of distortion
+across multiple measures can produce more aesthetically pleasing maps.
+
+The Chamberlin Trimetric projection is such a compromise map projection. It is
+named for Wellman Chamberlin, a chief cartographer for the National Geographic
 Society, which has published wall and atlas maps using his projection. The
 Chamberlin projection is appropriate for mapping whole continents and large
-portions of continents. \citep{christensen}
-
-The Chamberlin projection has a simple geometric construction, shown in Figure
-\ref{fig:chamberlin}. Three control points on the globe are specified, and a
-triangle in the plane is constructed having the same distances between its
-vertices as the true distances between the points on the globe. True distances
-from those control points to a given point on the globe are measured, and arcs
-are drawn at those distances from their respective points in the plane. The arcs
-form a small triangle: a point in that triangle is chosen as the projection of
-the original point. During Chamberlin's tenure at the NGS, when manual plotters
-were used, the exact definition of this point was not important,
-but \citet{christensen} and most modern implementations
-(e.g. \citealp{proj}) use the centroid of the small triangle.
+portions of continents. \citep{christensen} The Chamberlin projection has a
+simple geometric construction, shown in Figure \ref{fig:chamberlin}. Three
+control points on the globe are specified, and a triangle in the plane is
+constructed having the same distances between its vertices as the true
+distances between the points on the globe. True distances from those control
+points to a given point on the globe are measured, and arcs are drawn at those
+distances from their respective points in the plane.
+The arcs form a small triangle,
+and a point in that triangle is chosen as the projection of the original
+point. In the time period when manual plotters were used the exact definition
+of this point was less important, but \citet{christensen} and most modern
+implementations (e.g. \citealp{proj}) use the centroid of the small triangle.
 Thus, the Chamberlin projection is a form of triangulation. \citep{snyder89}
 
-\begin{figure}%[!htbp]
+\begin{figure}
   \includegraphics[width=\textwidth]{construction}
   \caption{Construction of the Chamberlin and Matrix Trimetric projections.
   Plot 1a is in equirectangular projection. Plot 1b is the projection
@@ -95,30 +69,32 @@ Thus, the Chamberlin projection is a form of triangulation. \citep{snyder89}
 \end{figure}
 
 This geometric construction is simple, but an analytic formula is preferred for
-implementation in modern computerized GIS, and the algorithmic form for the
-Chamberlin Trimetric projection is somewhat involved. This is presented in
-\citet{christensen}, and can be seen in the source code to its implementation in
-\citet{proj}: the algorithmic form has special cases to handle when the given
-point lies at a control point, or on an edge of the triangle with vertices at
-the control points. %FIXME and?
+modern computerized GIS, and the algorithmic form for the Chamberlin Trimetric
+projection is somewhat involved. This is presented in \citet{christensen}, and
+can be seen in the source code to its implementation in \citet{proj}; the
+algorithmic form has special cases to handle when the given point lies at a
+control point, or on a geodesic between control points. The geodesic case also
+requires calculating azimuths between the control points and the projected
+point.
 
-This text presents a new map projection called the Matrix Trimetric projection.
-A geometric construction related to the Chamberlin Trimetric projection results
-in a map projection that is similar but has a simpler analytical formula.
+This text presents a new map projection called the Matrix Trimetric projection
+as an alternative to the Chamberlin Trimetric projection. A geometric
+construction related to the Chamberlin Trimetric projection results in a map
+projection that is similar but has a simpler analytical formula,
+as well as other advantages.
 
 \section{Definitions and assumptions}
 We use the spherical approximation to the Earth. For this text, we assume a
 sphere with a radius of 6,371 km. The Chamberlin and Matrix projections are
 compromise projections, and do not perfectly preserve angle, area, or distance.
 For most practical ellipsoids, distortions due to the spherical approximation
-are negligible compared to distortions due to the projection itself.
-%If desired, one can use an ellipsoid for distance calculations: the form of the forward formula does not change, but the inverse formula is no longer exact. One can also use an auxiliary latitude: see \citet{snyder87} for details.
+are negligible compared to distortions due to the projections themselves.
 
 $\mathbf v$ and subscripted versions shall denote points on the sphere, and
-$\mathbf p = [x,~y]$ and subscripted versions shall denote points in the
-Euclidean plane. Representing the points on the sphere as a unit vector allows
-one to apply the tools of linear algebra. Refer to a text on linear algebra,
-such as \citet{strang80}, if needed. Let latitude be $\varphi$ and longitude be
+$\mathbf p$ and subscripted versions shall denote points in the Euclidean plane.
+Representing the points on the sphere as a unit vector allows one to apply the
+tools of linear algebra. Refer to a text on linear algebra, such as
+\citet{strang80}, if needed. Let latitude be $\varphi$ and longitude be
 $\lambda$, then latitude and longitude can be converted to a unit vector as so:
 \citep{kent}
 \begin{equation}
@@ -139,20 +115,22 @@ The conversion from a unit vector to latitude and longitude is:
   \lambda =& \arctan\left(y, x\right),
 \end{split}\end{equation}
 where the 2-variable form of $\arctan$ is used, commonly called \texttt{arctan2}
-or \texttt{atan2} in numeric libraries.
+or \texttt{atan2} in numeric software libraries.
 
 The distance function between two unit vectors is
 \begin{equation}
-d\left(\mathbf v_i, \mathbf v_j\right) = R \arccos\left(\mathbf v_i \cdot \mathbf v_j\right)
-= R \arctan\left(\|\mathbf v_i \times \mathbf v_j\|, \mathbf v_i \cdot \mathbf v_j\right),
+d\left(\mathbf v_i, \mathbf v_j\right)
+= R \arccos\left(\mathbf v_i \cdot \mathbf v_j\right)
+= R \arctan\left(\|\mathbf v_i \times \mathbf v_j\|,
+\mathbf v_i \cdot \mathbf v_j\right),
 \end{equation}
 where R is the radius of the Earth. The latter form, using the 2-variable form
 of $\arctan$, is the most numerically stable. Euclidean distances are found
 using the usual Euclidean norm: $\|\mathbf p_a - \mathbf p_b\|$.
 
-Let $\mathbf v_1$, $\mathbf v_2$, $\mathbf v_3$ be control points on the sphere:
-also let $\mathbf V$ be the matrix having $\mathbf v_i$ as its $i$th column. Let
-$\mathbf p_1 = [x_1,~y_1]$ etc. be the control points on the plane. The
+Let $\mathbf v_1$, $\mathbf v_2$, $\mathbf v_3$ be control points on the sphere,
+and let $\mathbf V$ be the matrix having $\mathbf v_i$ as its $i$th column.
+Let $\mathbf p_1$ etc. be the control points on the plane. The
 triangles with vertices at $\mathbf v_i$ or $\mathbf p_i$ are called the
 control triangles: spherical or planar control triangle, respectively, if the
 distinction is important. For this paper, the control triangle is not allowed
@@ -168,13 +146,13 @@ $d\left(\mathbf v_i, \mathbf v_j\right) = \|\mathbf p_i - \mathbf p_j\|$
 for all $i$ and $j$ in $\{1, 2, 3\}$: the spherical length of the edges of the
 spherical control triangle are equal to the Euclidean lengths of the planar
 control triangles. Without loss of generality, also assume that
-$\|\mathbf p_i\|$ is the same for all $i$, such that the center of the
-circumcircle of the control triangle lies at the origin. This just removes a
-translation in the plane in order to simplify the formulas; false northing and
-easting can be added later. Given $\mathbf v_i$, $\mathbf p_i$ can be
-constructed as follows. Let $i, j, k$ be a cyclic permutation of $\{1, 2, 3\}$,
-and let $s_k = d\left(\mathbf v_i, \mathbf v_j\right)$. The circumradius of the Euclidean
-triangle with sides of length $s_k$ is \citep{isaacs}
+$\|\mathbf p_i\|$ is the same for all $i$, such that the circumcenter of the
+control triangle lies at the origin. This just removes a translation in the
+plane in order to simplify the formulas; false northing and easting can be
+added later. Given $\mathbf v_i$, $\mathbf p_i$ can be constructed as follows.
+Let $i, j, k$ be a cyclic permutation of $\{1, 2, 3\}$, and let
+$s_k = d\left(\mathbf v_i, \mathbf v_j\right)$. The circumradius
+of the Euclidean triangle with sides of length $s_k$ is \citep{isaacs}
 \begin{equation}\label{eq:circumradius}
   C = \frac{\prod_i s_i}{\sqrt{\sum_i s_i^2 s_{i+1}^2 - s_i^4}}.
 \end{equation}
@@ -183,8 +161,8 @@ the interior angle $\phi_i$ at each vertex is
 \begin{equation}\label{eq:phi}
   \phi_i = \arccos \left( \frac{s_k^2 + s_j^2 - s_i^2}{2 s_k s_j}\right).
 \end{equation}
-Let $\mathbf P$ be the matrix whose $i$th column is the vector $\mathbf p_i$. Then a
-set of points satisfying the requirements are given as so:
+Let $\mathbf P$ be the matrix whose $i$th column is the vector $\mathbf p_i$.
+Then a set of points satisfying the requirements are given as so:
 \begin{equation}\label{eq:planarctrlpts}
   \mathbf P = \begin{bmatrix*}[r]
   C \cos \left(2 \phi_2 \right) &
@@ -201,11 +179,10 @@ not cause a problem on modern computers using common geographic units of
 distance, but some special applications may need to scale these values to avoid
 overflow.
 
-%FIXME harmonize the names of these things
 To measure distortion of area and angle, we use the areal scale factor $s$ and
 maximum angular deformation $\omega$ as defined in equations 12--15, 27, and 28
 in section 4 of \citet{snyder87}. Derivatives are estimated numerically using
-second-order central differences on a 1-degree grid via the \texttt{gradient}
+second-order central differences on a 1° grid via the \texttt{gradient}
 function in Numpy. \citep{numpy} There is no standard measurement of distance
 distortion for map projections, but for the projections in this text it makes
 sense to measure distances from the control points. Let $r_i$ be the
@@ -220,76 +197,27 @@ in the distances measured on projected and unprojected distances:
 \section{Forward projection}
 
 $r_i$ is also the radius of a circle on the sphere surface such that
-$\mathbf v_i$ is the center and $\mathbf v$ lies on the circle's boundary.
-The Chamberlin projection draws a circle of radius $r_i$ around each point
-$\mathbf p_i$. Each pair of circles intersects in at most two places. If
-one draws a line through the two points of intersection of each pair of circles,
-that line is perpendicular to the triangle edge. These are the dashed red lines
-in Figure \ref{fig:chamberlin}. Once the lines are drawn for each pair of
-circles, the three lines appear to meet at the same point, a fact that can be
-proven with a simple triangle theorem sometimes attributed to Carnot.
-(\citealp{posamentier}; \citealp{wohlgemuth})
-That point is not necessarily within
-the small triangle, although it is for most points within the control triangle.
-
-% Suppose that $\mathbf p_1 = [-1,0]$ and $\mathbf p_2 = [1,0]$. Then the points
-% of intersection of the circles with radius $r_1$ and $r_2$ are given as so:
-% \begin{equation}\begin{split}
-% x =& \frac{r^2_1 - r^2_2}{4}\\
-% y =& \pm \frac{1}{4} \sqrt{-
-% \left(r_1 - r_2 - 2\right)
-% \left(r_1 - r_2 + 2\right)
-% \left(r_1 + r_2 - 2\right)
-% \left(r_1 + r_2 + 2\right)}
-% \end{split}\end{equation}
-% Note that if the circles do not intersect, there is no real solution for $y$.
-%
-% If a line passing through the two points of intersection is drawn, it intersects
-% the triangle edge from $\mathbf p_1$ to $\mathbf p_2$ perpendicularly at
-% the point with $x$ as above and $y=0$: call that point $\mathbf p_{12}$. In
-% general form, one can use linear interpolation to determine the point of
-% perpendicular intersection $\mathbf p_{ij}$ as so:
-% \begin{equation}\label{eq:pij}
-% \mathbf p_{ij} = \mathbf p_i \frac{1-t_{ij}}{2} + \mathbf p_j \frac{1+t_{ij}}{2}
-% \end{equation}
-% \begin{equation}
-% t_{ij} = \frac{r_i^2 - r_j^2}{\| \mathbf p_i - \mathbf p_j \|^2}
-% \end{equation}
-% Note that this is defined for all $r_i$ and $r_j$,
-% regardless of whether the circles intersect.
-%
-% The lines passing through $\mathbf p_{ij}$ and parallel to the line from
-% $p_i$ to $p_j$ all meet at the same point. This can be proven with a simple
-% triangle theorem sometimes attributed to Carnot: such lines meet at a single
-% point if and only if \citep{posamentier}\citep{wohlgemuth}
-% \begin{equation}
-%   \|\mathbf p_1 - \mathbf p_{12}\| +
-%   \|\mathbf p_2 - \mathbf p_{23}\| +
-%   \|\mathbf p_3 - \mathbf p_{31}\| =
-%   \|\mathbf p_2 - \mathbf p_{12}\| +
-%   \|\mathbf p_3 - \mathbf p_{23}\| +
-%   \|\mathbf p_1 - \mathbf p_{31}\|
-% \end{equation}
-% for points $\mathbf p_{ij}$ lying on the edge between $\mathbf p_i$ and
-% $\mathbf p_j$. Plugging in Equation \ref{eq:pij} and simplifying proves that
-% these lines satisfy this theorem.
-%
-% The equation of the line passing from $\mathbf p_i$ to $\mathbf p_j$ is:
-% \begin{equation}
-% y (x_i - x_j) - x (y_i - y_j) - x_i y_j - x_j y_i = 0.
-% \end{equation}
-% Thus, the equation of the line perpendicular to that line and passing through
-% the point $\mathbf p_{ij}$ can be found to be
-% \begin{equation}
-% y (y_i - y_j) + x (x_i - x_j) + \frac{r_i^2 - r_j^2}{2} = 0.
-% \end{equation}
+$\mathbf v_i$ is its center and $\mathbf v$ lies on its boundary. The Chamberlin
+projection draws a circle of radius $r_i$ around each point $\mathbf p_i$. Each
+pair of circles intersects in at most two points. If one draws a
+line through the two points of intersection of each pair of circles, that line
+is perpendicular to the triangle edge. These are the dashed red lines in Figure
+\ref{fig:chamberlin}. Once the lines are drawn for each pair of circles, the
+three lines appear to meet at the same point, a fact that can be proven with a
+simple triangle theorem sometimes attributed to Carnot. (\citealp{posamentier};
+\citealp{wohlgemuth}) That point is not necessarily within the small triangle,
+although it is for most points within the control triangle. (If $\mathbf v$ lies
+on a control triangle edge, one pair of circles has a single point of
+intersection. One can draw a perpendicular through that point of
+intersection and continue as in the general case.)
 
 The equations of each perpendicular line, taken together, create a linear
 system. It is an overdetermined system of 3 equations in 2 variables, but since
 all 3 lines meet at the same point, it has a solution. Ultimately this system
 can be solved for $\mathbf p_m$ to define a forward map projection as follows.
 \begin{equation}\label{eq:forward}
-\mathbf p_m = \mathbf M \begin{bmatrix*} r^2_1 & r^2_2 & r^2_3 \end{bmatrix*}^\top,
+\mathbf p_m =
+\mathbf M \begin{bmatrix*} r^2_1 & r^2_2 & r^2_3 \end{bmatrix*}^\top,
 \end{equation}
 \begin{equation}\label{eq:forwardm}
 \mathbf M = \frac{1}{2T}
@@ -311,9 +239,9 @@ T = \begin{vmatrix*} x_1 & x_2 & x_3 \\
 $T$ is equal to twice the area of the Euclidean control triangle.
 
 The matrix $\mathbf M$ has a (right) nullspace spanned by the vector
-$[1, 1, 1]$. This implies the Matrix Trimetric projection is not one-to-one for
-all possible values of $r_i$: for example, for any values of $r_i$ such that
-$r_1 = r_2 = r_3$, then $\mathbf p_m = [0, 0]$. It turns out that the
+$[1, 1, 1]^\top$. This implies the Matrix Trimetric projection is not one-to-one for
+all possible values of $r_i$; for example, for any values of $r_i$ such that
+$r_1 = r_2 = r_3$, then $\mathbf p_m = [0, 0]^\top$. It turns out that the
 Chamberlin and Matrix Trimetric projections project the entire sphere to a
 bounded portion of the plane. The boundary of that portion can be termed the
 boundary of the projection. There is a region of overlap that is mapped into
@@ -324,7 +252,6 @@ the control points. In real applications, the overlap region can be excluded.
 Given $\mathbf p_m$, start to invert the projection as so:
 \begin{equation}\label{eq:inverse}
 \begin{bmatrix*} k_1 & k_2 & k_3
-
 \end{bmatrix*}^\top = \mathbf M^+ \mathbf p_m \,,
 \end{equation}
 \begin{equation}\label{eq:inversem}
@@ -339,20 +266,15 @@ Given $\mathbf p_m$, start to invert the projection as so:
 \end{bmatrix*}
 \mathbf P^\top .
 \end{equation}
-$k_i = r^2_i - h$ for some value $h$. This is a general solution to inverting
-Equation \ref{eq:forward}, thus the free parameter $h$. $\mathbf M^+$ is the
+$k_i = r^2_i - h$ for some value of the free parameter $h$. This is a general
+solution to inverting Equation \ref{eq:forward}: $\mathbf M^+$ is the
 pseudoinverse of $\mathbf M$ and vice versa. Because $\mathbf M^+$ has a left
 nullspace spanned by the vector $[1, 1, 1]$, it follows that $\sum_i k_i = 0$,
 and also that $h = \frac{1}{3}\sum_i r^2_i$.
-These equations are not enough to determine $r_i$ and $\mathbf v$:
+These equations are not enough to determine $r_i$ and $\mathbf v$;
 information about the sphere needs to be introduced.
 
-%{{(c (d - 2 (-d - e) - e) + b (-d - 2 e - 2 (d - f) + f) + a (-e - f - 2 (-e + f)))/3,
-%((d - 2 (-d - e) - e) f + e (-d - 2 e - 2 (d - f) + f) + d (-e - f - 2 (-e + f)))/3},
-%{((-a + b - 2 (a + b)) c + a (b - 2 (b - c) + c) + b (a + 2 b - c - 2 (-a + c)))/3,
-%((b - 2 (b - c) + c) d + (a + 2 b - c - 2 (-a + c)) e + (-a + b - 2 (a + b)) f)/3}}
-
-To simplify the derivation, use a unit sphere with $R=1$. $r_i$ now has
+To simplify the derivation, use a unit sphere with $R=1$, so that $r_i$ has
 units of radians of arc on the surface of the sphere. The circle of points
 $\mathbf v$ at distance $r_0$ from a point $\mathbf v_0$ is simply the circle
 created by a plane intersecting the sphere. This plane may be specified as
@@ -360,10 +282,10 @@ $\mathbf v_0 \cdot \mathbf v = \cos\left(r_0\right).$
 Replacing $\mathbf v_0$ with $\mathbf v_i$ and $r_0$ with $r_i$
 for each $i$ gives a linear system. Thus,
 \begin{equation}\label{eq:inversev}
-  \mathbf v = \mathbf V^{-1} \begin{bmatrix*} \cos\left(r_1\right) \\
-  \cos\left(r_2\right) \\
+  \mathbf v = \mathbf V^{-1} \begin{bmatrix*} \cos\left(r_1\right) &
+  \cos\left(r_2\right) &
   \cos\left(r_3\right)
-  \end{bmatrix*}.
+  \end{bmatrix*}^\top .
 \end{equation}
 
 For the point to lie on the unit sphere, $\|\mathbf v\| = 1$. Let $\mathbf c$
@@ -396,28 +318,8 @@ $\mathrm{sinc}\left(\sqrt{k_i + h}\right)$.
 Note that $f'(h)$ and $f(h)$ share many of the same terms,
 which can be exploited for more efficient calculation.
 
-% the function $\mathrm{sinc} (x)$
-% is defined as so:
-% \begin{equation}
-% \mathrm{sinc} (x) = \begin{cases}
-%       1 & \text{if}\ x=0, \\
-%       \frac{\sin x}{x} & \text{otherwise}.
-%     \end{cases}
-% \end{equation}
-
-%If needed for numerical purposes, the compositions
-%of trigonometric functions with square root can be smoothly extended to negative values:
-%when $x<0$, $\cos \sqrt{x} = \cosh \sqrt{-x}$
-%and $\mathrm{sinc}(\sqrt{x}) = \frac{\sin \sqrt{x}}{\sqrt{x}} = \frac{\sinh \sqrt{-x}}{\sqrt{-x}}$.
-
-%\begin{figure}%[!htbp]
-%  \includegraphics[width=\textwidth]{VariableH.png}
-%  \caption{Plot of $f(h)$ for a number of points in the plane. Labels are
-%  $x,y$ coordinates in thousands of kilometers.}
-%  \label{fig:fh}
-%\end{figure}
-The lower solution for $\mathbf p_m = [0, 0]$ is a
-global minimum for $h$, and can be calculated analytically as so:
+The lower solution for $\mathbf p_m = [0, 0]^\top$ is a
+global minimum for $h$, and can be calculated as so:
 \begin{equation}
   h_0 = \arccos^2 \left(\frac{1}{\sqrt{\sum \mathbf A }} \right) ,
 \end{equation}
@@ -428,27 +330,26 @@ A suitable initial condition is
 \begin{equation}\label{eq:inverseh}
   h_{\min} = \max \left(h_0, -\min_i k_i \right),
 \end{equation}
-which appears to always result in convergence to the lower root of $f(h)$. One
-could use $\frac{1}{3}\sum_i l^2_i$, where $l_i = |\mathbf p_m - \mathbf p_i|$
-approximates $r_i$ fairly well, but for some $\mathbf p_m$ near the boundary
-of the projection the iteration converges to the higher root.
+which appears to consistently result in convergence to the lower root of $f(h)$.
+One could use $\frac{1}{3}\sum_i l^2_i$,
+where $l_i = |\mathbf p_m - \mathbf p_i|$ approximates $r_i$ fairly well,
+but for some $\mathbf p_m$ outside the control triangle the iteration
+converges to the wrong root.
 
 A good approximation is achieved for points inside the control triangle within
-only a few iterations. Convergence is somewhat slower further away from the
-control triangle, and is worst at the boundary of the projection. This is
-expected: at the boundary,
+a few iterations. Convergence is somewhat slower farther away from the
+control triangle. At the boundary of the projection,
 the lower solution and upper solution are the same and $f(h)=f'(h)=0$
 so Newton's method converges at a merely linear rate. \citep{burden}
 
 \section{Comparison}
-A software implementation of the Matrix Trimetric projection was implemented in
+A software implementation of the Matrix Trimetric projection was created in
 Python, using the libraries Numpy \citep{numpy}, Scipy \citep{scipy}, Pandas
 \citep{pandas}, GeoPandas \citep{geopandas}, and their dependencies. The
 implementation of the Chamberlin Trimetric projection comes from PROJ
-\citeyear{proj}. %FIXME do I need all this?
+\citep{proj}. %FIXME do I need all this?
 Because the Chamberlin Trimetric and Matrix Trimetric projections are
-implemented in different programming languages,
-one compiled and one interpreted,
+programmed in different languages, one compiled and one interpreted,
 a comparison of computation time would be unfair and is not included here.
 
 \citet{christensen} gave a list of control triangles for the Chamberlin
@@ -474,8 +375,9 @@ NW South \mbox{America} & 69°W, 25°S & 55°W, 10°N & 85°W, 10°N & 3,284 & 4
 Canada Wall & 150°W, 60°N & 97°30'W, 50°N & 45°W, 60°N & 3,423 & 5,197 & 3,423 & 6.11 \\
 Canada \mbox{Atlas} & 98°13'W, 61°39'N & 135°W, 40°N & 55°W, 40°N & 6,560 & 3,761 & 3,449 & 5.28
 \end{tabular}
-\caption{Table of control triangles and their measurements. Side $n$ is opposite point $n$.
-Lengths are in km, and areas are in millions of square km. Measurements use spherical approximation.}
+\caption{Table of control triangles and their measurements, from
+\citet{christensen}. Side $n$ is opposite point $n$. Lengths are in km, and
+areas are in millions of square km. Measurements use spherical approximation.}
 \label{table:ctrlpts}
 \end{table}
 
@@ -483,7 +385,7 @@ For each control triangle, summary statistics for $\omega$, $D$, and $s$ are
 shown in Figures \ref{fig:omegap}--\ref{fig:scalep}. Note that the control
 triangles are sorted by area in these figures as well.
 These statistics are measured within the control triangles,
-and should not be taken to summarize the entire map: for most of the triangles,
+and should not be taken to summarize the entire map; for most of the triangles,
 the region of interest extends outside the control triangle.
 Rather, the statistics allow a quantitative comparison of the two projections.
 
@@ -494,7 +396,7 @@ Rather, the statistics allow a quantitative comparison of the two projections.
 \end{figure}
 
 As shown in Figure \ref{fig:omegap}, the Matrix projection consistently has a
-larger $\omega$ than the Chamberlin projection: in fact, the maximum $\omega$
+larger $\omega$ than the Chamberlin projection; in fact, the maximum $\omega$
 for Chamberlin is near the average $\omega$ for Matrix. Maximum and average
 $\omega$ trend upwards with control triangle area, although asymmetry of the
 control triangle has some influence too, as in the Canada triangles. The
@@ -513,7 +415,7 @@ Maps -- the maximum distortion is tolerable, and the average does not exceed 6°
 Total distance deviation $D$ in Figure \ref{fig:distancep} shows an even clearer
 trend, monotonically increasing with triangle area. Both projections have the
 same maximum $D$ values. The Matrix projection has consistently
-lower average $D$ values than the Chamberlin: among these triangles,
+lower average $D$ values than the Chamberlin; among these triangles,
 the maximum $D$ for Chamberlin is about 1.35 to 1.4 times
 the maximum $D$ for Matrix. The worst distortion,
 Africa Wall Map's maximum $D$, is less than 5\% of its edge lengths, and
@@ -525,14 +427,14 @@ smaller control triangles have a maximum $D$ that is an even smaller percent.
   \label{fig:scalep}
 \end{figure}
 
-As true 1:1 scale maps are rare, absolute values of $s$ are unimportant: the
+As true 1:1 scale maps are rare, absolute values of $s$ are unimportant; the
 quantity $\sigma = \frac{\max s}{\min s} - 1$ is plotted in Figure
-\ref{fig:scalep} instead. $\sigma$ shows a less clear trend. A combination of
+\ref{fig:scalep} instead. The trend of $\sigma$ is less clear. A combination of
 control triangle area and asymmetry influences this value. In general, this
 value is higher for Matrix than for Chamberlin, but not by any consistent
 factor, and for the large and symmetric Africa Wall Map triangle the Matrix
-projection is lower than Chamberlin.
-The amount of scale distortion is small for both:
+projection is actually lower than Chamberlin.
+The amount of scale distortion is small for both;
 except for the very obtuse Canada Atlas triangle, all values are below 10\%.
 
 A comparison of the two projections using the South America Wall Map control
@@ -542,24 +444,25 @@ representative, being somewhat asymmetric but not too obtuse. The small part of
 Central America in the upper left is somewhat shifted between the two maps, as
 is the western area near Ecuador and Peru, but no features on either map are
 conspicuously distorted compared to the other. Figure \ref{fig:tissot} shows
-ellipses of distortion centered on a grid at steps of 15° latitude and
-longitude. Distortion is somewhat more visible in this figure:
+ellipses of distortion with centers on a grid at steps of 15° latitude and
+longitude. Distortion is somewhat more visible in this figure;
 one can see that the Matrix projection
 introduces slightly more non-conformal distortion near the control points.
 
-\begin{figure}%[!htbp]
+\begin{figure}
   \includegraphics[width=\textwidth]{SA_Wall_Map_zoom}
-  \caption{Projection of South America and surroundings.}
+  \caption{Projection of South America and surroundings. Green lines indicate
+  the control triangle and control points in this and the following figures.}
   \label{fig:proj}
 \end{figure}
 
-\begin{figure}%[!htbp]
+\begin{figure}
   \includegraphics[width=\textwidth]{SA_Wall_Map_tissot}
-  \caption{Ellipses of distortion, on a 15 degree grid.}
+  \caption{Ellipses of distortion, on a 15° grid.}
   \label{fig:tissot}
 \end{figure}
 
-\begin{figure}%[!htbp]
+\begin{figure}
   \includegraphics[width=\textwidth]{SA_Wall_Map_omega}
   \caption{Maximum angular deformation $\omega$, in degrees. Blue dashed lines
   indicate where the two projections have equal $\omega$ values.}
@@ -572,10 +475,10 @@ projection extend outward through each edge of the control triangle. Both
 reach a minimum $\omega$ of 0 at a point inside the control triangle. Highly
 obtuse control triangles, like Canada Atlas, may have two local minima for
 $\omega$ within the control triangle. $\omega$ is higher for Matrix than
-Chamberlin, except for a small region in the center where both are near 0,
-and some regions near the boundary of the map.
+Chamberlin, except for a small region in the control triangle where both are
+near 0 and some regions near the boundary of the map.
 
-\begin{figure}%[!htbp]
+\begin{figure}
   \includegraphics[width=\textwidth]{SA_Wall_Map_distance}
   \caption{Total distance deviation $D$. Blue dashed lines
   indicate where the two projections have equal $D$ values.}
@@ -584,65 +487,33 @@ and some regions near the boundary of the map.
 
 Figure \ref{fig:distance} depicts contour lines of $D$ for these two
 projections. Both projections have a local minimum of 0 at the control points,
-which follows from the geometric construction. Both have a local maximum near
-the triangle center. $D$ for the Matrix projection is low along the control
+which follows from the geometric construction. Both have a local maximum inside
+the control triangle. $D$ for the Matrix projection is low along the control
 triangle edges, while for the Chamberlin projection it is larger. $D$ is
 lower for Matrix than Chamberlin in a region including the control triangle and
 nearly all of South America, except for a small region near the shared maximum.
 It is also lower in some regions extending outward from the control points.
 
-\begin{figure}%[!htbp]
+\begin{figure}
   \includegraphics[width=\textwidth]{SA_Wall_Map_scale}
   \caption{Areal scale factor $s$.}
   \label{fig:scale}
 \end{figure}
 
 Contour lines of $s$ are shown in Figure \ref{fig:scale}.
-The contour lines have the same circular structure in both projections,
-centered around a point where $s$ reaches a local minimum.
+The contour lines have the same elliptical structure in both projections,
+centered on a point where $s$ reaches a local minimum.
 This point is different for each projection, which influences
 the differences in aggregate area distortion in Figure \ref{fig:scalep}.
 That minimum value of $s$ is different for each projection.
 
 In most practical applications the area pictured in these figures will be
-sufficient, but we can state trends as both projections
-extend outward from the control triangle. $\omega$ increases to 180 degrees at
-the projection boundary, representing the inversion of the overlap region. $D$
+sufficient, but we can state trends as both projections extend outward from the
+control triangle, outside the area shown in these figures. $\omega$ increases to
+180° at the projection boundary, representing the inversion of the overlap region. $D$
 increases in general, but for the Matrix Trimetric projection
 $D$ remains low on the great circles containing the control triangle edges.
 $s$ increases to a maximum and then decreases to 0 at the projection boundary.
-
-% \subsection{Extremal cases}
-% With both projections, points within or near the antipodal triangle may be
-% projected so that they overlap points near or within the control triangle. Such
-% points can be determined by the areal scale factor: points with positive scale
-% factor lie in the usual range of the projection, while those with negative scale
-% factor will overlap, and those where the scale factor is 0 lie on the boundary.
-% The overlap is projected in the reverse orientation.
-%
-% For the control triangle used in this text, the overlap area is part of the
-% Pacific Ocean, as depicted in Figure \ref{fig:antipodal}. For the Chamberlin
-% projection, the area is a rounded triangle surrounding the antipodal triangle,
-% while for the Matrix Trimetric projection, it is a three-lobed shape
-% where two lobes meet at each vertex of the antipodal triangle.
-%
-% \begin{figure}%[!htbp]
-%
-% \caption{Antipodal area. Solid line is Matrix, dashed line is Chamberlin. The
-% small triangles inside the dashed line are numerical error.}
-% \label{fig:antipodal}
-% \end{figure}
-%
-% Figure \ref{fig:globeproj} shows the projection of the whole globe, including
-% the overlap.
-% In the Chamberlin projection, the boundary of the overlap is roughly elliptical.
-% The boundary of the projection presented here instead has the form of a
-% rounded triangle. In general the islands contained in this area are too small
-% to be visible in projection, but the Hawaiian islands, which are near the
-% northernmost vertex, do appear. On the Chamberlin projection, they are highly
-% distorted. On the other projection, one can see that they are reversed.
-% For large control triangles approaching a hemisphere, the
-% boundary approaches a triangle with straight edges (not pictured).
 
 \section{Conclusion}
 We have demonstrated a new compromise map projection, the Matrix Trimetric
@@ -651,20 +522,22 @@ projection. The forward formula is given in Equations
 product of a matrix and a vector. The vector depends on the point being
 transformed. The matrix calculated by the latter two equations depends only on
 the control points, so can be calculated once and reused. The forward formula
-does not have the special cases of the Chamberlin projection,
-making it more numerically stable as well as more efficient to calculate.
-Comparisons of calculation time were not made:
-the Matrix projection would likely be somewhat faster, but for both projections
-the bulk of calculation time would be spent in the same distance calculations.
+does not have the special cases of the Chamberlin projection, making it more
+efficient to calculate and easier to program. The Chamberlin projection also
+requires calculation of azimuths, which the Matrix projection does not. Both
+projections share the same distance calculations,
+which limits the degree to which they can differ. That
+said, when programmed in the same language, the Matrix Trimetric projection
+is likely to be somewhat faster than the Chamberlin Trimetric projection.
 
 The inverse formula is calculated by Equations
 \ref{eq:inverse}--\ref{eq:inverser} and a single-variable
 Newton's method iteration using Equations \ref{eq:inversefh} and
 \ref{eq:inversefph} with the lower bound of Equation \ref{eq:inverseh} as an
 initial condition. The matrices in Equations \ref{eq:inversem} and
-\ref{eq:inversev} also depend only on the control points, as does matrix
-$\mathbf A$ in Equations \ref{eq:inversefh} and \ref{eq:inversefph},
-and can be reused. The Chamberlin projection,
+\ref{eq:inversev}, as well as
+matrix $\mathbf A$ in Equations \ref{eq:inversefh} and \ref{eq:inversefph}, also
+depend only on the control points and can be reused. The Chamberlin projection,
 in contrast, has no known inverse aside from brute force two-variable inversion.
 
 Figures \ref{fig:omegap}--\ref{fig:scalep} plot aggregate measures of distortion
@@ -672,7 +545,7 @@ within each of the listed control triangles. The Chamberlin projection
 outperforms the Matrix projection in terms of angular distortion and (except in
 one case) scale distortion, but the reverse is true for distance distortion. For
 both projections, distortion tends to be larger for a larger control triangle.
-Figures \ref{fig:proj}--\ref{fig:distance} show the projections applied to 
+Figures \ref{fig:proj}--\ref{fig:distance} show the projections applied to
 South America, demonstrating the shape of distortions across the mapped area.
 Differences between the two projections are difficult to see with the eye.
 
@@ -683,6 +556,13 @@ The angular distortion of the Matrix Trimetric projection is lower
 in a region extending through the middle of the control triangle edges,
 so one may wish to orient the triangle to take advantage of that.
 
+Overall, the Matrix Trimetric projection is a viable alternative for the use
+cases of the Chamberlin Trimetric projection. The Matrix Trimetric has the
+advantage if an inverse is needed, if one wishes to reduce distance distortion,
+or if processing time is a concern. In general, the differences between the
+results of the Chamberlin and Matrix projections are small enough that either
+one is adequate for their common use cases.
+
 The Matrix Trimetric projection is closely related to the Chamberlin projection.
 Both are related to the azimuthal equidistant projection and the two-point
 equidistant projection, which depend on measurements from a single point and
@@ -691,22 +571,9 @@ from a pair of points, respectively. \citep{snyder87} This suggests an
 points. The form of the forward formula suggests a possible family of
 projections that are simple functions of such distances, such as a polynomial
 function. Additionally, there may exist similar projections using measurements
-other than distance, such as area.%FIXME refine this
+other than distance, such as area.
 
-% this isn't actually true lol
-% Both the Chamberlin and Matrix projections use the distance function of the
-% underlying surface. However, the Chamberlin projection implicitly depends on
-% the surface having nonnegative curvature: otherwise, the circles in the plane
-% would not be guaranteed to intersect. While the derivation presented for the
-% Matrix projection uses the same circles, the formulas are valid regardless, and
-% the Matrix projection can be applied to any surface with a distance function.
-% For instance, the human brain has concave areas. Brain cortex mapping commonly
-% uses conformal projection, done using iterative algorithms that are often
-% unstable. \citep{angenent} The Matrix projection may not be able to replace
-% conformal projection for this purpose,
-% but it may provide better initial conditions.
-
-An implementation of the Matrix Trimetric projection, as well as code used to
+A Python implementation of the Matrix Trimetric projection, as well as code used to
 produce the calculations and figures in this text,
 is available on the author's Github site. \citep{blind}%\citep{brsrmapproj}
 
