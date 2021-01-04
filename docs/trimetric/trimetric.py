@@ -134,7 +134,8 @@ cptable = pd.DataFrame(dtype=float,
                        columns=['pt1_lon', 'pt1_lat',
                                 'pt2_lon', 'pt2_lat',
                                 'pt3_lon', 'pt3_lat',
-                                'len23', 'len31', 'len12', 'area'])
+                                'len23', 'len31', 'len12', 
+                                'asymmetry', 'area'])
 cyclic2 = [1,2,0,1]
 pdtable = pd.DataFrame(index=pdindex, dtype=float,
                        columns=['avgomega', 'maxomega',
@@ -146,9 +147,12 @@ for name, controlpts in control_points.items():
     # stats about the control triangle
     assert np.linalg.det(mapproj.UnitVector.transform(
         actrlpts[0], actrlpts[1])) > 0
+    linelengths = geod.line_lengths(actrlpts[0, cyclic2], 
+                                    actrlpts[1, cyclic2])
+    asymmetry = 3*max(linelengths)/sum(linelengths) - 1                                        
     cptable.loc[name] = np.concatenate([actrlpts.T.flatten(),
-                                        geod.line_lengths(
-                                            actrlpts[0, cyclic2], actrlpts[1, cyclic2]),
+                                        linelengths,
+                                        [asymmetry],
                                         [geod.polygon_area_perimeter(actrlpts[0], actrlpts[1])[0]]])
 
     # determine index for interior of triangle
@@ -488,17 +492,18 @@ pdtablenoh = pdtable#.drop('Hemisphere')
 area = cptable.area#.drop('Hemisphere')
 #sl = cptable[['len12','len23','len31']].drop('Hemisphere')
 #aspect = sl.max(axis=1) - sl.min(axis=1)
-cham_maxo = pdtablenoh.xs('Chamberlin', level=1)['maxomega']
-matrix_maxo = pdtablenoh.xs('Matrix', level=1)['maxomega']
-cham_avgo = pdtablenoh.xs('Chamberlin', level=1)['avgomega']
-matrix_avgo = pdtablenoh.xs('Matrix', level=1)['avgomega']
-cham_maxd = pdtablenoh.xs('Chamberlin', level=1)['maxld']
-matrix_maxd = pdtablenoh.xs('Matrix', level=1)['maxld']
-cham_avgd = pdtablenoh.xs('Chamberlin', level=1)['avgld']
-matrix_avgd = pdtablenoh.xs('Matrix', level=1)['avgld']
-cham_sr = pdtablenoh.xs('Chamberlin', level=1)['scalerat']
-matrix_sr = pdtablenoh.xs('Matrix', level=1)['scalerat']
-labels = area.index
+aorder = cptable.sort_values('area')#'symmetry')
+cham_maxo = aorder.join(pdtablenoh.xs('Chamberlin', level=1))['maxomega']
+matrix_maxo = aorder.join(pdtablenoh.xs('Matrix', level=1))['maxomega']
+cham_avgo = aorder.join(pdtablenoh.xs('Chamberlin', level=1))['avgomega']
+matrix_avgo = aorder.join(pdtablenoh.xs('Matrix', level=1))['avgomega']
+cham_maxd = aorder.join(pdtablenoh.xs('Chamberlin', level=1))['maxld']
+matrix_maxd = aorder.join(pdtablenoh.xs('Matrix', level=1))['maxld']
+cham_avgd = aorder.join(pdtablenoh.xs('Chamberlin', level=1))['avgld']
+matrix_avgd = aorder.join(pdtablenoh.xs('Matrix', level=1))['avgld']
+cham_sr = aorder.join(pdtablenoh.xs('Chamberlin', level=1))['scalerat']
+matrix_sr = aorder.join(pdtablenoh.xs('Matrix', level=1))['scalerat']
+labels = aorder.index
 ticks = np.arange(len(labels))
 #%%
 cptablefmt = cptable.copy()
