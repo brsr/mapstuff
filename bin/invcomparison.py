@@ -5,12 +5,13 @@ Created on Fri May 22 20:02:25 2020
 
 @author: brsr
 """
-
+import pyproj
+pyproj.datadir.set_data_dir('/usr/local/share/proj')
+import fiona
 import geopandas
 import pandas as pd
 #import shapely
 from shapely.geometry import Point, LineString, MultiPolygon, Polygon
-import pyproj
 #import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np

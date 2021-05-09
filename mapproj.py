@@ -330,6 +330,15 @@ def omegascale(adegpts, degpts_t, geod, spacing=1):
     omega = 360*np.arcsin(sinomegav2)/np.pi
     return omega, scale
 
+def rodrigues(center, v, theta):
+    """Rodrigues formula: rotate vector v around center by angle theta
+    """
+    cxv = np.cross(center, v)
+    cv = np.sum(center* v, axis=-1, keepdims=True)
+    cc = v*np.cos(theta) + cxv*np.sin(theta) + center*cv*(1-np.cos(theta))
+    return cc
+
+
 #%%
 class Projection(ABC):
     """Don't subclass this without subclassing one of
@@ -865,22 +874,16 @@ class LinearTrimetric(CtrlPtsProjection):
         self.radius = ((geod.a**(3/2) + geod.b**(3/2))/2)**(2/3)
         self.tgtpts = trigivenlengths(self.sides)
         self.setmat()
-        try:
-            self.orienttgtpts(self.tgtpts)
-            self.setmat()
-        except ValueError:
-            pass
+        # try:
+        #     self.orienttgtpts(self.tgtpts)
+        #     self.setmat()
+        # except ValueError:
+        #     pass
 
         vctrl = self.ctrlpts_v
-        try:
-            self.invctrlvector = np.linalg.inv(vctrl)
-            self.invperpmatrix = np.linalg.inv(vctrl.T @ vctrl)
-            cosrthmin = 1 / np.sqrt(self.invperpmatrix.sum())
-            #cosrthmin = cosrthmin if cosrthmin > 0 and cosrthmin <= 1 else 0
-        except np.linalg.LinAlgError:
-            self.invctrlvector = np.eye(3)
-            self.invperpmatrix = np.eye(3)
-            cosrthmin = 0
+        self.invctrlvector = np.linalg.pinv(vctrl)
+        self.invperpmatrix = self.invctrlvector @ self.invctrlvector.T
+        cosrthmin = 1 / np.sqrt(self.invperpmatrix.sum())
         self.hminall = np.arccos(cosrthmin)**2
 
     def setmat(self, tgtpts=None):
@@ -913,9 +916,11 @@ class LinearTrimetric(CtrlPtsProjection):
         rpts = pts.reshape((2,-1))
         k = self.minv @ rpts/self.radius**2
         hmin = -np.min(k, axis=0)
+        print('k: ', k)
         #hmax = np.pi**2-np.max(k, axis=0)
         hminall = self.hminall
         h = np.where(hmin < hminall, hminall, hmin)
+        print('h: ', h)
         for i in range(n):
             rsq = (k + h)
             #pos = rsq > 0
@@ -929,12 +934,16 @@ class LinearTrimetric(CtrlPtsProjection):
             fprime = np.einsum('i...,ij,j...', c, self.invperpmatrix, b)
             delta = f/fprime
             h += delta
+            print('delta:', delta)
+            print('h: ', h)
             if np.max(np.abs(delta)) < stop:
                 break
         #h = np.clip(h, hmin, hmax)
         rsq = np.clip(k + h, 0, np.pi**2)
         c = np.cos(np.sqrt(rsq))
         vector = self.invctrlvector.T @ c
+        print(c)
+        print(vector)
         return UnitVector.invtransform_v(vector).reshape(pts.shape)
 
     def nmforplot(self, pts, n=100):
