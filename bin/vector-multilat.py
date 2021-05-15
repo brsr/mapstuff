@@ -74,12 +74,12 @@ circle2 = rodrigues(pt2[np.newaxis], startpt2,
 
 pt3 = np.array([-0.4, -0.4, np.sqrt(0.68)])
 startpt3 = rodrigues(someplane, pt3, 60*np.pi/180)
-pts = np.stack([pt1, pt2, pt3])
+pts = np.stack([pt1, pt2, pt3])#clockwise but that's ok
 cosrs = np.array([pt1 @ startpt1, pt2 @ startpt2, pt3 @ startpt3])
 v3 = np.linalg.solve(pts, cosrs)
 v3 /= np.linalg.norm(v3)
 
-cxcx = -np.stack([np.cross(pt2, pt3), 
+cxcx = -np.stack([np.cross(pt2, pt3), #negative to deal with clockwise
                  np.cross(pt3, pt1), 
                  np.cross(pt1, pt2)]).T
 v = cxcx @ cosrs
