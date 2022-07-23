@@ -29,7 +29,7 @@ circle1 = rodrigues(pt1[np.newaxis], startpt1,
                     alltheta[:, np.newaxis])
 pt2 = -pt1
 pt2[2] = pt1[2]
-startpt2 = rodrigues(someplane, pt2, 37.97*np.pi/180)#45*np.pi/180)10*np.pi/180)#
+startpt2 = rodrigues(someplane, pt2, 37.98*np.pi/180)#45*np.pi/180)#10*np.pi/180)#
 
 circle2 = rodrigues(pt2[np.newaxis], startpt2,
                     alltheta[:, np.newaxis])
@@ -42,20 +42,25 @@ cosr2 = pt2 @ startpt2
 h1 = (cosr1 - cosr2 * cdotc)/(cxc @ cxc)
 h2 = (cosr2 - cosr1 * cdotc)/(cxc @ cxc)
 t = np.sqrt(1 - h1**2 - h2**2 - 2*h1*h2*cdotc)/ncxc
-if np.isnan(t):
-    t = 0
-v1 = h1 * pt1 + h2 * pt2 + t * cxc
-v2 = h1 * pt1 + h2 * pt2 - t * cxc
+#if np.isnan(t):
+#    t = 0
+vax = h1 * pt1 + h2 * pt2
+v1 = vax + t * cxc
+v2 = vax - t * cxc
 v = np.stack([v1, v2])
 v /= np.linalg.norm(v, axis=-1, keepdims=True)
+vax /= np.linalg.norm(vax, axis=-1, keepdims=True)
 fig, ax = plotinit()
 ax.scatter(pt1[0], pt1[1], color='r')
 ax.plot(circle1[..., 0], circle1[..., 1], color='r')
 ax.scatter(pt2[0], pt2[1], color='b')
 ax.plot(circle2[..., 0], circle2[..., 1], color='b')
 ax.scatter(v[..., 0], v[..., 1], color='k', zorder=5)
+ax.scatter(vax[..., 0], vax[..., 1], color='k', marker='x', zorder=5)
 
-#fig.savefig('bilat_37.97.svg', bbox_inches = 'tight')
+#fig.savefig('bilat_45.svg', bbox_inches = 'tight')
+fig.savefig('bilat_37.98.svg', bbox_inches = 'tight')
+#fig.savefig('bilat_10.svg', bbox_inches = 'tight')
 #%% 3
 pt1 = np.array([-0.5,0.25,np.sqrt(0.6875)])
 
