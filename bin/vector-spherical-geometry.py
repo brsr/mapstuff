@@ -9,7 +9,7 @@ Created on Mon Apr 19 16:18:38 2021
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from mapproj import Areal, UnitVector, rodrigues, slerp, triangle_solid_angle
+from mapstuff import Areal, UnitVector, rodrigues, slerp, triangle_solid_angle
 
 abc = np.zeros((3,3))
 abc[0, :2] = [-0, -0.5]

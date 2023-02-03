@@ -14,10 +14,10 @@ import pyproj
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import mapproj
+import mapstuff
 
 world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
-grat = mapproj.graticule()
+grat = mapstuff.graticule()
 grat.crs = world.crs
 ax = grat.plot(color='k', linewidth=0.5, zorder=0)
 world.plot(ax=ax)
@@ -50,8 +50,8 @@ for name, f in fs.items():
         x2 = r * np.cos(theta2)
         y2 = r * np.sin(theta2)
         return x2, y2
-    tgrat = mapproj.transeach(radtransform, unitgrat)
-    tworld = mapproj.transeach(radtransform, unitworld)
+    tgrat = mapstuff.transeach(radtransform, unitgrat)
+    tworld = mapstuff.transeach(radtransform, unitworld)
     fig, ax = plt.subplots(facecolor='k', figsize=(8, 8))
     #fig.patch.set_alpha(1)
     cc = plt.Circle(( 0 , 0 ), 1 , facecolor='w') 

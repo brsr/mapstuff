@@ -10,12 +10,12 @@ import geopandas
 from shapely.geometry import LineString
 import pyproj
 import numpy as np
-import mapproj
+import mapstuff
 import matplotlib.pyplot as plt
 from scipy.special import hyp2f1
 
 geod = pyproj.Geod(ellps='WGS84')
-grat = mapproj.graticule(lonrange=[90,180], latrange=[0,90])
+grat = mapstuff.graticule(lonrange=[90,180], latrange=[0,90])
 orthograt = grat.to_crs('proj=ortho +lat_0=45 +lon_0=135')
 
 n=50

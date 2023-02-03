@@ -8,7 +8,7 @@ Created on Sun Feb 14 14:15:06 2021
 
 import numpy as np
 import matplotlib.pyplot as plt
-import mapproj
+import mapstuff
 import fiona
 from shapely.geometry import Point, LineString, MultiPolygon, Polygon
 import geopandas
@@ -20,17 +20,17 @@ actrlpts3 = np.array([[15+0, 15+36, 15-36],
                       [-a, a, a]])
 #actrlpts3 = np.array([[ 0, 0, 90],
 #                      [90, 0,  0]])
-ctrlpoly3 = mapproj.geodesics(actrlpts3[0], actrlpts3[1], geod, includepts=True)
-tgtpts3 = mapproj.complex_to_float2d(1j*np.exp(2j/3*np.arange(3)*np.pi)).T
-bp = mapproj.Barycentric(tgtpts3)
+ctrlpoly3 = mapstuff.geodesics(actrlpts3[0], actrlpts3[1], geod, includepts=True)
+tgtpts3 = mapstuff.complex_to_float2d(1j*np.exp(2j/3*np.arange(3)*np.pi)).T
+bp = mapstuff.Barycentric(tgtpts3)
 
-grid3 = mapproj.Barycentric.grid(1/8)
-gridp3 = mapproj.Barycentric.gridpolys(n=9)
+grid3 = mapstuff.Barycentric.grid(1/8)
+gridp3 = mapstuff.Barycentric.gridpolys(n=9)
 #%%
-gridbary = mapproj.transeach(bp.transform, gridp3)
-conformal = mapproj.ConformalTri3(actrlpts3, tgtpts3)
-invframe = mapproj.transeach(conformal.invtransform, gridbary)#slooooow
-invframev = mapproj.transeach(mapproj.UnitVector.transform, invframe)
+gridbary = mapstuff.transeach(bp.transform, gridp3)
+conformal = mapstuff.ConformalTri3(actrlpts3, tgtpts3)
+invframe = mapstuff.transeach(conformal.invtransform, gridbary)#slooooow
+invframev = mapstuff.transeach(mapstuff.UnitVector.transform, invframe)
 invframe.plot()
 
 #%%
@@ -132,9 +132,9 @@ vertices[:,0,-2] = initial[:,2]
 r1 = r[edge1]
 t = (r1[:-1] + r1[1:]).cumsum()/edgelength
 t = np.concatenate([[0,], t])
-e1 = mapproj.slerp(initial[:,0], initial[:,1], t[:, np.newaxis]).T
-e2 = mapproj.slerp(initial[:,0], initial[:,2], t[:, np.newaxis]).T
-e3 = mapproj.slerp(initial[:,2], initial[:,1], t[:, np.newaxis]).T
+e1 = mapstuff.slerp(initial[:,0], initial[:,1], t[:, np.newaxis]).T
+e2 = mapstuff.slerp(initial[:,0], initial[:,2], t[:, np.newaxis]).T
+e3 = mapstuff.slerp(initial[:,2], initial[:,1], t[:, np.newaxis]).T
 vertices[:,edge1[0], edge1[1]] = e1
 vertices[:,edge2[0], edge2[1]] = e2
 vertices[:,edge3[0], edge3[1]] = e3
@@ -158,7 +158,7 @@ for i in range(1, n-1):
         print(i, j, filled.sum(), lq, norm)
 
 vindex = np.all(np.isfinite(vertices), axis=0)
-result = mapproj.UnitVector.invtransform_v(vertices)
+result = mapstuff.UnitVector.invtransform_v(vertices)
 #%%
 fig, axes = plt.subplots(ncols = 3, figsize=(10, 8), sharex=True, sharey=True)
 axes[0].plot(vertices[0], vertices[1])

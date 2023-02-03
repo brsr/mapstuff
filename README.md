@@ -1,6 +1,6 @@
-# mapproj
+# mapstuff
 
-Python implementations of some map projections that don't currently exist in [PROJ](https://github.com/OSGeo/PROJ). Currently under construction and probably not of interest to anyone else yet :)
+A package for experimenting with map projections and other cartography stuff. Not a practical cartography package, most of the stuff included here is not optimized for speed or memory.
 
 Depends on:
 * [geopandas](https://github.com/geopandas/geopandas),

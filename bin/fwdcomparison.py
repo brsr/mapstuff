@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 #import os
-#os.chdir('Code/mapproj')
-import mapproj
+#os.chdir('Code/mapstuff')
+import mapstuff
 
 #geod = pyproj.Geod(a=1, b=1)
 geod = pyproj.Geod(a=6371, f=0)
@@ -32,7 +32,7 @@ world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
 #                 [-np.sin(theta), 0, np.cos(theta)]])
 
 # tetv = mat.T @ tetv
-# tetll = mapproj.UnitVector.invtransform_v(tetv)
+# tetll = mapstuff.UnitVector.invtransform_v(tetv)
 # tetll += np.array([30, 0])[:,np.newaxis]
 # actrlpts = tetll[:, 1:]
 # actrlpts = actrlpts[:, ::-1]
@@ -41,7 +41,7 @@ world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
 #octahedron face
 #octll = np.array([[0,-45,45],
 #                  [90,-0,0]])
-#ov = mapproj.UnitVector.transform_v(octll)
+#ov = mapstuff.UnitVector.transform_v(octll)
 #print(np.pi/2*6371)
 #actrlpts = np.array([[ 0.        , -20.22,  70.21857],
 #                     [ 80.        , -5, -5]])
@@ -51,21 +51,21 @@ world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
 #                [-np.sin(theta), 0, np.cos(theta)]])
 
 #ov = mat.T @ ov
-#actrlpts = mapproj.UnitVector.invtransform_v(ov)
+#actrlpts = mapstuff.UnitVector.invtransform_v(ov)
 #actrlpts += np.array([20,0])[:,np.newaxis]
 
 #icosahedron face
 a = np.arctan(1/2)/np.pi*180
 actrlpts3 = np.array([[15+0, 15+36, 15-36],
                 [-a, a, a]])
-#iv = mapproj.UnitVector.transform_v(ill)
+#iv = mapstuff.UnitVector.transform_v(ill)
 #theta = 0.29*np.pi
 #mat = np.array([[ np.cos(theta), 0, np.sin(theta)],
 #                [             0, 1,             0],
 #                [-np.sin(theta), 0, np.cos(theta)]])
 
 #iv = mat.T @ iv
-#actrlpts3 = mapproj.UnitVector.invtransform_v(iv)
+#actrlpts3 = mapstuff.UnitVector.invtransform_v(iv)
 #actrlpts3 += np.array([15,0])[:,np.newaxis]
 
 #actrlpts3 = np.array([[0,    0, 179.999],
@@ -73,28 +73,28 @@ actrlpts3 = np.array([[15+0, 15+36, 15-36],
 #actrlpts3 = np.array([[-20,    -20, 80],
 #                     [45,  -45, 0]])
 
-ctrlpoly3 = mapproj.geodesics(actrlpts3[0], actrlpts3[1], geod, includepts=True)
+ctrlpoly3 = mapstuff.geodesics(actrlpts3[0], actrlpts3[1], geod, includepts=True)
 a = 180/np.pi * np.arctan(1/np.sqrt(2))
 actrlpts4 = np.array([[-30, 60, 60, -30],
                       [-a, -a, a, a]])
-ctrlpoly4 = mapproj.geodesics(actrlpts4[0], actrlpts4[1], geod, includepts=True)
+ctrlpoly4 = mapstuff.geodesics(actrlpts4[0], actrlpts4[1], geod, includepts=True)
 ctrlpoly3.crs = world.crs
 ctrlpoly4.crs = world.crs
 
-#controlpts = mapproj.arraytoptseries(actrlpts)#, crs=ucrs)
-vcontrolpts3 = mapproj.UnitVector.transform_v(actrlpts3)
-vcontrolpts4 = mapproj.UnitVector.transform_v(actrlpts4)
+#controlpts = mapstuff.arraytoptseries(actrlpts)#, crs=ucrs)
+vcontrolpts3 = mapstuff.UnitVector.transform_v(actrlpts3)
+vcontrolpts4 = mapstuff.UnitVector.transform_v(actrlpts4)
 
-center3 = mapproj.UnitVector.invtransform_v(vcontrolpts3.sum(axis=1))[:,np.newaxis]
+center3 = mapstuff.UnitVector.invtransform_v(vcontrolpts3.sum(axis=1))[:,np.newaxis]
 small3 = np.concatenate([center3, actrlpts3[:,1:]], axis=1)
 center4 = np.array([15, 0])[:,np.newaxis]
 small4 = np.concatenate([center4, actrlpts4[:,:2]], axis=1)
-vsmall3 = mapproj.UnitVector.transform_v(small3)
-vsmall4 = mapproj.UnitVector.transform_v(small4)
+vsmall3 = mapstuff.UnitVector.transform_v(small3)
+vsmall4 = mapstuff.UnitVector.transform_v(small4)
 
 #cx = np.cross(vcontrolpts4, np.roll(vcontrolpts4, -1, axis=1), axis=0)
 
-#ctrlboundary = mapproj.geodesics(actrlpts[0], actrlpts[1], geod)
+#ctrlboundary = mapstuff.geodesics(actrlpts[0], actrlpts[1], geod)
 #ctrlpoly = geopandas.GeoSeries(pd.concat([ctrlboundary, controlpts],
 #                                            ignore_index=True),
 #                               crs=world.crs)
@@ -111,7 +111,7 @@ adegpts = np.array(np.meshgrid(np.linspace(-30, 55, 426),#171),
                                np.linspace(15, 80, 326)))#131))
 adegpts = np.array(np.meshgrid(np.linspace(-45, 75, 121),
                                np.linspace(-60, 60, 121)))
-vdegpts = mapproj.UnitVector.transform_v(adegpts)
+vdegpts = mapstuff.UnitVector.transform_v(adegpts)
 #insidemask3 = np.all(np.tensordot(np.linalg.inv(vcontrolpts3), vdegpts,
 insidemask3 = np.all(np.tensordot(np.linalg.inv(vsmall3), vdegpts,
                                  axes=(1, 0)) > 0, axis=0)
@@ -120,19 +120,19 @@ insidemask3 = np.all(np.tensordot(np.linalg.inv(vsmall3), vdegpts,
 insidemask4 = np.all(np.tensordot(np.linalg.inv(vsmall4), vdegpts,
                                  axes=(1, 0)) > 0, axis=0)
 
-degpts = mapproj.arraytoptseries(adegpts)#, crs=ucrs)
+degpts = mapstuff.arraytoptseries(adegpts)#, crs=ucrs)
 degpts.crs = world.crs
-grat = mapproj.graticule()
-grat = mapproj.graticule(lonrange = [-30, 60], latrange = [15, 90])
-grat = mapproj.graticule(lonrange = [0, 180], latrange = [-90, 90])
-grat = mapproj.graticule(lonrange = [-45, 75], latrange = [-60, 60])
+grat = mapstuff.graticule()
+grat = mapstuff.graticule(lonrange = [-30, 60], latrange = [15, 90])
+grat = mapstuff.graticule(lonrange = [0, 180], latrange = [-90, 90])
+grat = mapstuff.graticule(lonrange = [-45, 75], latrange = [-60, 60])
 
-center3 = mapproj.UnitVector.invtransform_v(vcontrolpts3.sum(axis=1))
+center3 = mapstuff.UnitVector.invtransform_v(vcontrolpts3.sum(axis=1))
 center4 = np.array([15, 0])
-#midpoints = mapproj.UnitVector.invtransform_v(vcontrolpts3 +
+#midpoints = mapstuff.UnitVector.invtransform_v(vcontrolpts3 +
 #                                              np.roll(vcontrolpts3, 1, axis=1))
 #apoi = np.concatenate([actrlpts, midpoints, center[:, np.newaxis]], axis=1)
-#poi = mapproj.arraytoptseries(apoi)#, crs=ucrs)
+#poi = mapstuff.arraytoptseries(apoi)#, crs=ucrs)
 fig, ax = plt.subplots(figsize=(10, 5))
 world.plot(ax=ax, color='k')
 grat.plot(ax=ax, color='lightgrey')
@@ -144,10 +144,10 @@ ax.axis('equal')
 cycle = [0,1,2,0]
 sidelengths = geod.line_lengths(actrlpts3[0][cycle], actrlpts3[1][cycle])
 print(sidelengths)
-tgtpts3 = mapproj.trigivenlengths(sidelengths)#[::-1,]
+tgtpts3 = mapstuff.trigivenlengths(sidelengths)#[::-1,]
 ctrlarea3, _ = geod.polygon_area_perimeter(actrlpts3[0],
                                           actrlpts3[1])
-scalefactor = np.sqrt(ctrlarea3/mapproj.shoelace(tgtpts3))
+scalefactor = np.sqrt(ctrlarea3/mapstuff.shoelace(tgtpts3))
 mat = np.array([[0,-1],
                 [1,0]]).T
 tgtpts3 = mat @ tgtpts3 * scalefactor
@@ -158,9 +158,9 @@ cycle = [0,1,2,3,0]
 sidelengths = geod.line_lengths(actrlpts4[0][cycle], actrlpts4[1][cycle])
 print(sidelengths)
 
-#ct = mapproj.float2d_to_complex(tgtpts.T).squeeze()
+#ct = mapstuff.float2d_to_complex(tgtpts.T).squeeze()
 #ct = ct *1j*np.exp(-1j*np.angle(ct[0]))
-#tgtpts = mapproj.complex_to_float2d(ct).T
+#tgtpts = mapstuff.complex_to_float2d(ct).T
 
 # def contours(param, levels=None, filled=True, label=True):
 #     fig, ax = plt.subplots(figsize=(10, 5))
@@ -183,7 +183,7 @@ print(sidelengths)
 #lengths = np.array(lengths)
 #maskindex = ((adegpts[0] < -30) | (adegpts[0] > 60) |
 #             (adegpts[1] < 0) | (adegpts[1] > 90) )
-#scalefactor = geod.polygon_area_perimeter(actrlpts[0], actrlpts[1])[0]/mapproj.shoelace(tgtpts)
+#scalefactor = geod.polygon_area_perimeter(actrlpts[0], actrlpts[1])[0]/mapstuff.shoelace(tgtpts)
 #rpoi = np.round(apoi)
 #ipoi = np.array(np.where(np.all(adegpts[:, np.newaxis] ==
 #                                rpoi[...,np.newaxis,np.newaxis], axis=0))[1:])
@@ -212,7 +212,7 @@ for i, crs, ctrlpoly in zip([3, 4], [crs3, crs4], [ctrlpoly3, ctrlpoly4]):
     ctrlpolys[name] = cp
     nctrlpts[name] = i
     #pois      = poi.to_crs(crs)
-    dp = mapproj.ptseriestoarray(degpts.to_crs(crs)).reshape(adegpts.shape)
+    dp = mapstuff.ptseriestoarray(degpts.to_crs(crs)).reshape(adegpts.shape)
     if i == 3:
         gscale = cp[5].xy[1][0]/tgtpts3[1,2]
     elif i == 4:
@@ -223,51 +223,51 @@ for i, crs, ctrlpoly in zip([3, 4], [crs3, crs4], [ctrlpoly3, ctrlpoly4]):
 
     def transform_gscale(x, y):
         return x/gscale, y/gscale
-    worlds[name] = mapproj.transeach(transform_gscale, worlds[name])
-    grats[name] = mapproj.transeach(transform_gscale, grats[name])
-    ctrlpolys[name] = mapproj.transeach(transform_gscale, ctrlpolys[name])
-    #pois[name] = mapproj.transeach(transform_gscale, pois[name])
+    worlds[name] = mapstuff.transeach(transform_gscale, worlds[name])
+    grats[name] = mapstuff.transeach(transform_gscale, grats[name])
+    ctrlpolys[name] = mapstuff.transeach(transform_gscale, ctrlpolys[name])
+    #pois[name] = mapstuff.transeach(transform_gscale, pois[name])
 
 #not-barycentric projections implemented here
-projs = {#'Chamberlin Trimetric': mapproj.ChambTrimetric(actrlpts, geod),#not polygonal
-         #'Linear Trimetric':     mapproj.LinearTrimetric(actrlpts, geod),#not polygonal
-         #'Conformal2': mapproj.ConformalTri(actrlpts, tgtpts),#buggy
-         'Conformal': mapproj.ConformalTri3(actrlpts3, tgtpts3),
-         'Crider':              mapproj.CriderEq(actrlpts4),
-         'Snyder Equal-Area 4':  mapproj.SnyderEA4(actrlpts4)
+projs = {#'Chamberlin Trimetric': mapstuff.ChambTrimetric(actrlpts, geod),#not polygonal
+         #'Linear Trimetric':     mapstuff.LinearTrimetric(actrlpts, geod),#not polygonal
+         #'Conformal2': mapstuff.ConformalTri(actrlpts, tgtpts),#buggy
+         'Conformal': mapstuff.ConformalTri3(actrlpts3, tgtpts3),
+         'Crider':              mapstuff.CriderEq(actrlpts4),
+         'Snyder Equal-Area 4':  mapstuff.SnyderEA4(actrlpts4)
          }
 
 for name in projs:
     print(name)
     mp = projs[name]
     nctrlpts[name] = mp.nctrlpts
-    worlds[name] = mapproj.transeach(mp.transform, world.geometry)
-    grats[name] = mapproj.transeach(mp.transform, grat)
+    worlds[name] = mapstuff.transeach(mp.transform, world.geometry)
+    grats[name] = mapstuff.transeach(mp.transform, grat)
     if mp.nctrlpts == 3:
-        ctrlpolys[name] = mapproj.transeach(mp.transform, ctrlpoly3)
+        ctrlpolys[name] = mapstuff.transeach(mp.transform, ctrlpoly3)
     elif mp.nctrlpts == 4:
-        ctrlpolys[name] = mapproj.transeach(mp.transform, ctrlpoly4)
-    #pois[name] = mapproj.transeach(mp.transform, poi)
+        ctrlpolys[name] = mapstuff.transeach(mp.transform, ctrlpoly4)
+    #pois[name] = mapstuff.transeach(mp.transform, poi)
     degptss[name] = mp.transform_v(adegpts)
 
 #barycentric projections
-baryprojs = {'Areal':                   mapproj.Areal(actrlpts3),
-             'Fuller explicit':         mapproj.FullerEq(actrlpts3),
-             #'Fuller':                  mapproj.FullerTri(actrlpts3, tweak=False),
-             #'Fuller Tweaked':          mapproj.FullerTri(actrlpts3, tweak=True),
-             'Bisect':                  mapproj.BisectTri(actrlpts3),
-             'Bisect2':                  mapproj.BisectTri2(actrlpts3),
-             #'Snyder Equal-Area':       mapproj.SnyderEA(actrlpts3),#not symmetric
-             'Snyder Equal-Area 3':     mapproj.SnyderEA3(actrlpts3),
-             'Snyder Symmetrized':      mapproj.SnyderEASym(actrlpts3),
-             #'Alfredo':         mapproj.Alfredo(actrlpts3),#polygonal?
-             #'Alfredo Tweaked': mapproj.Alfredo(actrlpts3, tweak=True),#not polygonal
-             'Double':                  mapproj.Double(actrlpts3, 
-                                                       mapproj.FullerEq, 
-                                                       mapproj.Areal, t=7)
+baryprojs = {'Areal':                   mapstuff.Areal(actrlpts3),
+             'Fuller explicit':         mapstuff.FullerEq(actrlpts3),
+             #'Fuller':                  mapstuff.FullerTri(actrlpts3, tweak=False),
+             #'Fuller Tweaked':          mapstuff.FullerTri(actrlpts3, tweak=True),
+             'Bisect':                  mapstuff.BisectTri(actrlpts3),
+             'Bisect2':                  mapstuff.BisectTri2(actrlpts3),
+             #'Snyder Equal-Area':       mapstuff.SnyderEA(actrlpts3),#not symmetric
+             'Snyder Equal-Area 3':     mapstuff.SnyderEA3(actrlpts3),
+             'Snyder Symmetrized':      mapstuff.SnyderEASym(actrlpts3),
+             #'Alfredo':         mapstuff.Alfredo(actrlpts3),#polygonal?
+             #'Alfredo Tweaked': mapstuff.Alfredo(actrlpts3, tweak=True),#not polygonal
+             'Double':                  mapstuff.Double(actrlpts3, 
+                                                       mapstuff.FullerEq, 
+                                                       mapstuff.Areal, t=7)
              }
 
-bp = mapproj.Barycentric(tgtpts3)
+bp = mapstuff.Barycentric(tgtpts3)
 
 worldsb    = {}
 gratsb     = {}
@@ -278,10 +278,10 @@ for name in baryprojs:
     print(name)
     mp = baryprojs[name]
     nctrlpts[name] = mp.nctrlpts
-    world_b = mapproj.transeach(mp.transform, world.geometry)
-    grat_b = mapproj.transeach(mp.transform, grat)
-    ctrlpoly_b = mapproj.transeach(mp.transform, ctrlpoly3)
-    #poi_b = mapproj.transeach(mp.transform, poi)
+    world_b = mapstuff.transeach(mp.transform, world.geometry)
+    grat_b = mapstuff.transeach(mp.transform, grat)
+    ctrlpoly_b = mapstuff.transeach(mp.transform, ctrlpoly3)
+    #poi_b = mapstuff.transeach(mp.transform, poi)
     degpts_b = mp.transform_v(adegpts)
 
     worldsb[name] = world_b
@@ -290,35 +290,35 @@ for name in baryprojs:
     #poisb[name] = poi_b
     degptssb[name] = degpts_b
 
-    worlds[name] = mapproj.transeach(bp.transform, world_b)
-    grats[name] = mapproj.transeach(bp.transform, grat_b)
-    ctrlpolys[name] = mapproj.transeach(bp.transform, ctrlpoly_b)
-    #pois[name] = mapproj.transeach(bp.transform, poi_b)
+    worlds[name] = mapstuff.transeach(bp.transform, world_b)
+    grats[name] = mapstuff.transeach(bp.transform, grat_b)
+    ctrlpolys[name] = mapstuff.transeach(bp.transform, ctrlpoly_b)
+    #pois[name] = mapstuff.transeach(bp.transform, poi_b)
     degptss[name] = bp.transform_v(degpts_b)
     
-baryprojs2 = {'SEA3':     mapproj.SnyderEA(small3),
-              'SEA4':     mapproj.SnyderEA(small4)}
+baryprojs2 = {'SEA3':     mapstuff.SnyderEA(small3),
+              'SEA4':     mapstuff.SnyderEA(small4)}
 
 tgtsmall3 = tgtpts3.copy()
 tgtsmall3[:,0] = 0
 tgtsmall4 = np.array([[0.5, 0, 1],
                       [0.5, 0, 0]])
-bp2 = {'SEA3':     mapproj.Barycentric(tgtsmall3),
-       'SEA4':     mapproj.Barycentric(tgtsmall4)}
+bp2 = {'SEA3':     mapstuff.Barycentric(tgtsmall3),
+       'SEA4':     mapstuff.Barycentric(tgtsmall4)}
 nctrlpts['SEA3'] = 3
 nctrlpts['SEA4'] = 4
 for name in baryprojs2:
     print(name)
     mp = baryprojs2[name]
     #nctrlpts[name] = mp.nctrlpts
-    world_b = mapproj.transeach(mp.transform, world.geometry)
-    grat_b = mapproj.transeach(mp.transform, grat)
+    world_b = mapstuff.transeach(mp.transform, world.geometry)
+    grat_b = mapstuff.transeach(mp.transform, grat)
     if nctrlpts[name] == 3:
         cpoly = ctrlpoly3
     else:
         cpoly = ctrlpoly4
-    ctrlpoly_b = mapproj.transeach(mp.transform, cpoly)
-    #poi_b = mapproj.transeach(mp.transform, poi)
+    ctrlpoly_b = mapstuff.transeach(mp.transform, cpoly)
+    #poi_b = mapstuff.transeach(mp.transform, poi)
     degpts_b = mp.transform_v(adegpts)
 
     worldsb[name] = world_b
@@ -328,10 +328,10 @@ for name in baryprojs2:
     degptssb[name] = degpts_b
     
     b = bp2[name]
-    worlds[name] = mapproj.transeach(b.transform, world_b)
-    grats[name] = mapproj.transeach(b.transform, grat_b)
-    ctrlpolys[name] = mapproj.transeach(b.transform, ctrlpoly_b)
-    #pois[name] = mapproj.transeach(b.transform, poi_b)
+    worlds[name] = mapstuff.transeach(b.transform, world_b)
+    grats[name] = mapstuff.transeach(b.transform, grat_b)
+    ctrlpolys[name] = mapstuff.transeach(b.transform, ctrlpoly_b)
+    #pois[name] = mapstuff.transeach(b.transform, poi_b)
     degptss[name] = b.transform_v(degpts_b)
     
 #%% remove interpolations
@@ -392,7 +392,7 @@ angles = {}
 for name in degptss:
     degpts_t = degptss[name]
     n = nctrlpts[name]
-    omega, scale = mapproj.omegascale(adegpts, degpts_t,
+    omega, scale = mapstuff.omegascale(adegpts, degpts_t,
                                       geod, spacing=1)
     # if name == 'Gnomonic 3':
     #     scalefactor = 1

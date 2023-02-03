@@ -4,7 +4,7 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from mapproj import rodrigues
+from mapstuff import rodrigues
 
 northpole = np.array([0,0,1])
 alltheta = np.linspace(0, 2*np.pi, 360)
