@@ -269,6 +269,10 @@ perps = np.cross(zin, edgecenters)
 pint = np.cross(edgecenters, perps)
 pint /= np.linalg.norm(pint, axis=1, keepdims=True)
 
+#can also be expressed as:
+pint0 = (ncx @ abc - (abc[0] @ np.cross(abc[1], abc[2])) * edgecenters[0])
+pint0 /= np.linalg.norm(pint0, keepdims=True)
+
 theta = np.linspace(0, 2*np.pi, 360)[:,np.newaxis]
 v = pint[0]
 cxv = np.cross(zin, v)
@@ -285,6 +289,74 @@ ax.plot(cc[..., 0], cc[..., 1], color='r')
 ax.set_title('incenter')
 print(pint @ zin)
 fig.savefig('incenter.svg', bbox_inches = 'tight')
+
+#%% excenter
+
+zout0 = -ncx[0] * abc[0] + ncx[1] * abc[1] + ncx[2] * abc[2]
+zout0 /= np.linalg.norm(zout0, keepdims=True)
+zout1 = ncx[0] * abc[0] - ncx[1] * abc[1] + ncx[2] * abc[2]
+zout1 /= np.linalg.norm(zout1, keepdims=True)
+zout2 = ncx[0] * abc[0] + ncx[1] * abc[1] - ncx[2] * abc[2]
+zout2 /= np.linalg.norm(zout2, keepdims=True)
+
+pinx0 = (-ncx[0] * abc[0] + ncx[1] * abc[1] + ncx[2] * abc[2]
+ + (abc[0] @ np.cross(abc[1], abc[2])) * np.cross(abc[1], abc[-1])/ncx[0])
+pinx0 /= np.linalg.norm(pinx0, keepdims=True)
+pinx1 = (ncx[0] * abc[0] - ncx[1] * abc[1] + ncx[2] * abc[2]
+ + (abc[0] @ np.cross(abc[1], abc[2])) * np.cross(abc[2], abc[0])/ncx[1])
+pinx1 /= np.linalg.norm(pinx1, keepdims=True)
+pinx2 = (ncx[0] * abc[0] + ncx[1] * abc[1] - ncx[2] * abc[2]
+ + (abc[0] @ np.cross(abc[1], abc[2])) * np.cross(abc[0], abc[1])/ncx[2])
+pinx2 /= np.linalg.norm(pinx2, keepdims=True)
+
+v0 = pinx0
+cxv0 = np.cross(zout0, v0)
+cv0 = zout0 @ v0
+cc0 = v0*np.cos(theta) + cxv0*np.sin(theta) + zout0*cv0*(1-np.cos(theta))
+
+v1 = pinx1
+cxv1 = np.cross(zout1, v1)
+cv1 = zout1 @ v1
+cc1 = v1*np.cos(theta) + cxv1*np.sin(theta) + zout1*cv1*(1-np.cos(theta))
+
+v2 = pinx2
+cxv2 = np.cross(zout2, v2)
+cv2 = zout2 @ v2
+cc2 = v2*np.cos(theta) + cxv2*np.sin(theta) + zout2*cv2*(1-np.cos(theta))
+
+print(triangle_solid_angle(pint[0], pint[1], pint[2]), 
+      triangle_solid_angle(pinx0, pinx1, pinx2))
+fig, ax = plotinit()
+for circle, color1, color2, ccx in [(circle1, 'r', '#FFBBBB', cc0),
+                               (circle2, 'b', '#BBBBFF', cc1),
+                               (circle3, 'g', '#BBFFBB', cc2)]:
+    index = circle[..., 2] < 0
+    cnan = circle[:, :].copy()
+    cnan[index, :] = np.nan
+    ax.plot(cnan[..., 0], cnan[..., 1], c='k')
+    index = ccx[..., 2] < 0
+    cnan = ccx[:, :].copy()
+    cnan[index, :] = np.nan
+    ax.plot(cnan[..., 0], cnan[..., 1], c='r')
+
+    #index = circle[..., 2] > 0
+    #cnan = circle[:, :].copy()
+    #cnan[index, :] = np.nan
+    #ax.plot(cnan[..., 0], cnan[..., 1], c=color2, zorder=-1)
+ax.scatter(zout0[0], zout0[1], color='k', zorder=6, label='excenter0')
+ax.scatter(zout1[0], zout1[1], color='k', zorder=6, label='excenter1')
+ax.scatter(zout2[0], zout2[1], color='k', zorder=6, label='excenter2')
+ax.scatter(pinx0[0], pinx0[1], color='r', zorder=6, label='extouch')
+ax.scatter(pinx1[0], pinx1[1], color='r', zorder=6, label='extouch')
+ax.scatter(pinx2[0], pinx2[1], color='r', zorder=6, label='extouch')
+ax.scatter(abc[..., 0], abc[..., 1], color='k')
+#ax.plot(abcedges[..., 0], abcedges[..., 1], color='k')
+ax.scatter(pint[..., 0], pint[..., 1], color='b')
+#ax.plot(bps[..., 0], bps[..., 1], color='b')
+ax.scatter(zin[0], zin[1], label='incenter', color='k', zorder=5)
+ax.plot(cc[..., 0], cc[..., 1], color='b')
+ax.set_title('intouch & extouch points')
+fig.savefig('extouch.svg', bbox_inches = 'tight')
 #%% circumcenter
 zcr = np.sum(np.cross(np.roll(abc, -1, axis=0),
                       np.roll(abc, 1, axis=0)), axis=0)
