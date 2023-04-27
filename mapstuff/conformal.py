@@ -62,7 +62,8 @@ class ConformalTri(CtrlPtsProjection):
 
     def __init__(self, ctrlpts, tgtpts, geod=_unitsphgeod):
         super().__init__(ctrlpts, geod=geod)
-        self.tgtpts = float2d_to_complex(tgtpts.T).squeeze()
+        self.tgtpts = tgtpts
+        self.ctgtpts = float2d_to_complex(tgtpts.T).squeeze()
 
         actrlpts = ctrlpts
         basei = 0
@@ -87,7 +88,7 @@ class ConformalTri(CtrlPtsProjection):
         self.bp = (1 + alpha + beta - gam)/2#b - c + 1
         self.cp = 1 + alpha#2-c
 
-        tgt_sides = abs(np.roll(self.tgtpts, 1) - np.roll(self.tgtpts, -1))
+        tgt_sides = abs(np.roll(self.ctgtpts, 1) - np.roll(self.ctgtpts, -1))
         tgt_angles = anglesgivensides(tgt_sides, scale=1)[0]
         alphat, betat, gamt = tgt_angles/np.pi
         self.apt = (1 + alphat - betat - gamt)/2
@@ -100,8 +101,8 @@ class ConformalTri(CtrlPtsProjection):
         self.pts_t = np.array(stert.transform(actrlpts[0], actrlpts[1]))
         self.pts_c = float2d_to_complex(self.pts_t.T.copy()).squeeze()
         #pts_r = pts_c / pts_c[1] * ctrl_s1
-        self.bx = self.tgtpts[0]
-        self.ax = (self.tgtpts[1] - self.tgtpts[0])/self.t1_s1
+        self.bx = self.ctgtpts[0]
+        self.ax = (self.ctgtpts[1] - self.ctgtpts[0])/self.t1_s1
 
     def transform(self, lon, lat):
         lon + 0

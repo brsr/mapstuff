@@ -22,6 +22,56 @@ from .helper import sqrt, antipode_v, central_angle, trigivenlengths, triangle_s
 
 _unitsphgeod = pyproj.Geod(a=1, b=1)
 
+class Double(Transformation):
+    """Linear combination of two projections
+    
+    Note that the inverse transformation is not the inverse of the forward
+    transformation: it is the linear combination of the inverse 
+    transformations.
+    """
+    def __init__(self, proj1, proj2, t=0.5):
+        subproj = [proj1, proj2]
+        super().__init__()
+        self.subproj = subproj
+        self.t = t
+
+    def transform(self, lon, lat):
+        subproj = self.subproj
+        t = self.t
+        return ((1 - t)*subproj[0].transform(lon, lat)
+                + t*subproj[1].transform(lon, lat))
+
+    def inv_transform(self, x, y):
+        subproj = self.subproj
+        t = self.t
+        return ((1 - t)*subproj[0].inv_transform(x, y)
+                + t*subproj[1].inv_transform(x, y))
+
+class Multiple(Transformation):
+    """Linear combination of several projections
+    
+    Note that the inverse transformation is not the inverse of the forward
+    transformation: it is the linear combination of the inverse 
+    transformations.
+    """
+    def __init__(self, subproj, t):
+        super().__init__()
+        assert len(subproj) == len(t)
+        self.subproj = subproj
+        self.t = t
+
+    def transform(self, lon, lat):
+        rx = 0
+        for proj, t in zip(self.subproj, self.t):
+            rx += t * proj.transform(lon, lat)
+        return rx
+
+    def inv_transform(self, x, y):
+        rx = 0
+        for proj, t in zip(self.subproj, self.t):
+            rx += t * proj.inv_transform(x, y)
+        return rx
+    
 class CtrlPtsProjection(Transformation, ABC):
     """Subclass for any map projection that uses (2 or more) control points."""
     def __init__(self, ctrlpts, geod = _unitsphgeod):
@@ -136,8 +186,13 @@ class CtrlPtsProjection(Transformation, ABC):
         result = np.argmax(ind, axis=0)
         return result.reshape(testpt.shape[1:])
 
-class Double(CtrlPtsProjection):
-    """Linear combination of two projections"""
+class DoubleCtrlPts(CtrlPtsProjection):
+    """Linear combination of two projections
+    
+    Note that the inverse transformation is not the inverse of the forward
+    transformation: it is the linear combination of the inverse 
+    transformations.
+    """
     def __init__(self, ctrlpts, proj1, proj2, t=0.5):
         subproj = [proj1(ctrlpts), proj2(ctrlpts)]
         self.nctrlpts = subproj[0].nctrlpts

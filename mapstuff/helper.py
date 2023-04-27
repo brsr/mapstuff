@@ -43,7 +43,7 @@ def float2d_to_complex(arr):
            [4.+5.j],
            [6.+7.j]])
     """
-    return arr.view(complex)
+    return arr[..., 0] + 1j*arr[..., 1]
 
 def ptseriestoarray(ser):
     """Convert a geopandas GeoSeries containing shapely Points
@@ -288,9 +288,9 @@ def graticule(spacing1=15, spacing2=1,
     grat.crs = {'init': 'epsg:4326'}
     return grat
 
-def omegascale(adegpts, degpts_t, geod, spacing=1):
-    """Estimate scale factor and max deformation angle for a map projection
-    based on a grid of points
+def omegascale(adegpts, degpts_t, geod, spacing=1, extras=False):
+    """Estimate scale factor, max deformation angle, and possibly other stuff 
+    for a map projection based on a grid of points
     """
     #actrlpts, tgtpts,
     #ar, p = geod.polygon_area_perimeter(actrlpts[0], actrlpts[1])
@@ -316,4 +316,8 @@ def omegascale(adegpts, degpts_t, geod, spacing=1):
     bprime = sqrt(h**2 + k**2 - 2*h*k*sinthetaprime)
     sinomegav2 = np.clip(bprime/aprime, -1, 1)
     omega = 360*np.arcsin(sinomegav2)/np.pi
-    return omega, scale
+    if extras:
+        mpdev = np.arccos(sinthetaprime)*180/np.pi
+        return omega, scale, mpdev, h, k
+    else:
+        return omega, scale

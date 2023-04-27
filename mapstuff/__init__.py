@@ -12,3 +12,5 @@ from .projections import *
 from .tri import *
 from .quad import *
 from .conformal import *
+from .multipart import IcosahedralProjection, SubdividedIcosahedralProjection,\
+    IcosahedralProjectionNoPost

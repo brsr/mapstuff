@@ -100,7 +100,7 @@ class Alfredo(BarycentricMapProjection):
 
     def invtransform(self, *args, **kwargs):
         return NotImplemented
-    
+
 class Fuller(BarycentricMapProjection):
 
     def __init__(self, ctrlpts, tweak=False):
@@ -438,8 +438,6 @@ class SnyderEA3(BarycentricMapProjection):
         pj = self.subproj[i]#FIXME ?
         return pj.invtransform(*betap)
 
-    
-
 class Areal(BarycentricMapProjection):
     """Spherical areal projection."""
 
@@ -488,6 +486,173 @@ class Areal(BarycentricMapProjection):
         shape = [2] + list(bary.shape[1:])
         result = UnitVector.invtransform_v(vector).reshape(shape)
         return result
+    
+class Trilinear(BarycentricMapProjection):
+    def __init__(self, ctrlpts):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        vctrlpts = self.ctrlpts_v
+        vxs = np.cross(np.roll(vctrlpts, -1, axis=1), 
+                       np.roll(vctrlpts, 1, axis=1), axis=0)
+        nvxs = np.linalg.norm(vxs, axis=0, keepdims=True)
+        vxs /= nvxs
+        self.vmatrix = vxs
+        vm = vctrlpts * nvxs / np.linalg.det(vctrlpts)
+        vmvm = vm.T @ vm #symmetric for a regular triangle, only 2 values
+        self.invmatrix = vm
+        self.newtonmatrix = vmvm
+    
+    def transform(self, lon, lat):
+        lon + 0
+        vtestpt = UnitVector.transform(lon, lat)
+        vxs = self.vmatrix
+        sintl = vxs.T @ vtestpt
+        tl = np.arcsin(sintl)*self.sides
+        beta = tl/tl.sum()        
+        return self._fix_corners(lon, lat, beta)    
+    
+    def invtransform(self, b1, b2, b3, n=20, stop=1E-8):
+        b1 + 0
+        beta = np.array([b1,b2,b3])        
+        vm = self.invmatrix
+        vmvm = self.newtonmatrix
+        h=1
+        for i in range(n):
+            s = np.sin(beta*h)
+            c = np.cos(beta*h)
+            f = np.einsum('i...,ij,j...', s, vmvm, s) - 1
+            fprime = np.einsum('i...,ij,j...', s, vmvm, c)
+            delta = -f/fprime
+            h += delta
+            print('delta:', delta)
+            print('h: ', h)
+            if np.max(np.abs(delta)) < stop:
+                break
+        s = np.sin(beta*h)
+        v = vm @ s
+        return UnitVector.invtransform_v(v)
+#%%
+class SplitAreaTri(BarycentricMapProjection):
+    """Inverse is only approximate
+    """
+    def __init__(self, ctrlpts):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        ctrlpts_v = self.ctrlpts_v
+        self.ctrldet = np.linalg.det(ctrlpts_v)
+        midpoint_v = np.roll(ctrlpts_v, 1, axis=1) + np.roll(ctrlpts_v, -1, axis=1)
+        midpoint_v /= np.linalg.norm(midpoint_v, axis=0, keepdims=True)
+        self.midpoint_v = midpoint_v
+        self.midpoint = UnitVector.invtransform_v(self.midpoint_v)
+        aream = []
+        for i in range(3):
+            am = triangle_solid_angle(ctrlpts_v[:,i], ctrlpts_v[:,(i+1)%3],
+                                      midpoint_v[:,i])
+            aream.append(am)
+        self.aream = np.array(aream)
+
+    def transform(self, lon, lat):
+        lon + 0
+        vtestpt = UnitVector.transform(lon, lat)
+        areas = []
+        vctrlpts = self.ctrlpts_v
+        area = self.area
+        dv = self.ctrldet
+        for n in range(3):
+            mi = self.midpoint_v[:,n-2]#?
+            vx = np.cross(vctrlpts[..., n-1], vctrlpts[..., n])
+            lproj = (vtestpt * dv - vctrlpts[:,n-2] * (vx @ vtestpt))
+            a1 = triangle_solid_angle(vctrlpts[:,n-2], mi, lproj)
+            areas.append(a1)
+        areas = np.array(areas) + self.aream
+        aa = areas/area
+        bx = []
+        for i in range(3):
+            x,y,z = np.roll(aa, -i, axis=0)
+            b = x*(1 - y + y*z)
+            bx.append(b)        
+        bx = np.array(bx)
+        betax = bx/bx.sum()
+        return self._fix_corners(lon, lat, betax)
+
+class SplitLengthTri(BarycentricMapProjection):
+    """Inverse is only approximate"""
+    def __init__(self, ctrlpts):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        ctrlpts_v = self.ctrlpts_v
+        self.ctrldet = np.linalg.det(ctrlpts_v)
+        midpoint_v = np.roll(ctrlpts_v, 1, axis=1) + np.roll(ctrlpts_v, -1, axis=1)
+        midpoint_v /= np.linalg.norm(midpoint_v, axis=0, keepdims=True)
+        self.midpoint_v = midpoint_v
+        self.midpoint = UnitVector.invtransform_v(self.midpoint_v)
+        
+    def transform(self, lon, lat):
+        lon + 0
+        vtestpt = UnitVector.transform(lon, lat)
+        aa = []
+        vctrlpts = self.ctrlpts_v
+        actrlpts = self.ctrlpts
+        for n in range(3):#i = 2-n
+            vc = np.roll(vctrlpts, 2-n, axis=1)
+            ac = np.roll(actrlpts, 2-n, axis=1)
+            mi = self.midpoint[:,n-2]
+            lproj = -np.cross(np.cross(vc[..., 1], vc[..., 2]),
+                              np.cross(vc[..., 0], vtestpt))
+            lllproj = UnitVector.invtransform_v(lproj)
+            dist1x = central_angle(vc[..., 1], lproj)
+            f, b, dist1x = self.geod.inv(mi[0], mi[1],
+                                         lllproj[0],lllproj[1])
+            f0, b0, _ = self.geod.inv(mi[0], mi[1],
+                                      ac[0,2], ac[1,2])
+            deltaf = (f-f0) % 360
+            if (deltaf <= 90) | (deltaf > 270):
+                s = 1
+            else:
+                s = -1
+            t = s*dist1x/self.sides[n] + 1/2
+            aa.append(t)
+        bx = []
+        for i in range(3):
+            x,y,z = np.roll(aa, -i, axis=0)
+            b = x*(1 - y + y*z)
+            bx.append(b)
+        bx = np.array(bx)
+        betax = bx/bx.sum()     
+        return self._fix_corners(lon, lat, betax)
+
+class SplitAngleTri(BarycentricMapProjection):
+    """Inverse is only approximate"""
+
+    def transform(self, lon, lat):
+        lon + 0
+        vtestpt = UnitVector.transform(lon, lat)
+        tt = []
+        vctrlpts = self.ctrlpts_v
+        ctrl_angles = self.ctrl_angles/180*np.pi
+        for n in range(3):
+            vc = np.roll(vctrlpts, 2-n, axis=1)
+            tantheta = (np.cross(vc[:,0], vc[:,1]) @ vtestpt)/(
+                (vc[:,1] @ vtestpt) - (vc[:,0] @ vc[:,1]) * (vc[:,0] @ vtestpt)
+                )
+            tt.append(tantheta)
+        thetas = np.arctan(tt)
+        thetas[thetas < 0] += np.pi
+        aa = thetas/ctrl_angles
+        bx = []
+        for i in range(3):
+            x,y,z = np.roll(aa, -i, axis=0)
+            b = x*(1 - y + y*z)
+            bx.append(b)
+        bx = np.array(bx)
+        betax = bx/bx.sum()        
+        return self._fix_corners(lon, lat, betax)
 #%%
 class BisectTri(BarycentricMapProjection):
     """Inverse is only approximate
@@ -498,19 +663,13 @@ class BisectTri(BarycentricMapProjection):
         """
         super().__init__(ctrlpts)
         ctrlpts_v = self.ctrlpts_v
-        #v_0 = ctrlpts_v[..., 0]
-        #v_1 = ctrlpts_v[..., 1]
-        #v_2 = ctrlpts_v[..., 2]
+        self.ctrldet = np.linalg.det(ctrlpts_v)
         midpoint_v = np.roll(ctrlpts_v, 1, axis=1) + np.roll(ctrlpts_v, -1, axis=1)
         midpoint_v /= np.linalg.norm(midpoint_v, axis=0, keepdims=True)
         self.midpoint_v = midpoint_v
         self.midpoint = UnitVector.invtransform_v(self.midpoint_v)
         aream = []
         for i in range(3):
-            #index = np.roll(np.arange(3), -i)[:2]
-            #lona = list(ctrlpts[0, index]) + [self.midpoint[0,i],]
-            #lata = list(ctrlpts[1, index]) + [self.midpoint[1,i],]
-            #am, _ = self.geod.polygon_area_perimeter(lona, lata)
             am = triangle_solid_angle(ctrlpts_v[:,i], ctrlpts_v[:,(i+1)%3],
                                       midpoint_v[:,i])
             #vc[:,0], mi, lproj)
@@ -522,8 +681,8 @@ class BisectTri(BarycentricMapProjection):
         vtestpt = UnitVector.transform(lon, lat)
         areas = []
         vctrlpts = self.ctrlpts_v
-        actrlpts = self.ctrlpts
-        geod = self.geod
+        #actrlpts = self.ctrlpts
+        #geod = self.geod
         area = self.area
         for i in range(3):
             vc = np.roll(vctrlpts, i, axis=1)
@@ -547,7 +706,7 @@ class BisectTri(BarycentricMapProjection):
                 - 2*y*x**2 - x*z**2 + y*z**2 + x**2
                 + 3*y*x + z*x - 2*y*z
                 - 2*x - y + z + 1)
-            bx.append(b)
+            bx.append(b)    
         bx = np.array(bx)
         betax = bx/bx.sum()
         return self._fix_corners(lon, lat, betax)
@@ -741,7 +900,7 @@ class FullerEq(BarycentricMapProjection):
 
 class SnyderEASym(BarycentricMapProjection):
 
-    def __init__(self, ctrlpts):
+    def __init__(self, ctrlpts, p = SnyderEA):
         """Parameters:
         ctrlpts: 2xn Numpy array, latitude and longitude of each control point
         """
@@ -749,7 +908,7 @@ class SnyderEASym(BarycentricMapProjection):
         subproj = []
         for i in range(3):
             cp = np.roll(ctrlpts, i, axis=1)
-            pj = SnyderEA(cp)
+            pj = p(cp)
             subproj.append(pj)
         self.subproj = subproj
 
@@ -765,8 +924,17 @@ class SnyderEASym(BarycentricMapProjection):
         return beta/3
 
     def invtransform(self, *args, **kwargs):
-        return NotImplemented
-    
+        subproj = self.subproj
+        for i in range(3):
+            pj = subproj[i]
+            b = np.roll(args, i, axis=0)
+            r = UnitVector.transform(pj.invtransform(b))
+            try:
+                result += r
+            except NameError:
+                result = r
+        return UnitVector.invtransform(normalize(result))
+
 class ReverseFuller(BarycentricMapProjection):
 
     def __init__(self, ctrlpts, tweak=False):
@@ -847,3 +1015,94 @@ class NSlerpTri(BarycentricMapProjection, KProjection):
         result = self.extend(result)
         result = self._fix_corners_inv(bary, result)
         return UnitVector.invtransform_v(result)
+#%%
+class SmallCircleEA(BarycentricMapProjection):
+
+    def __init__(self, ctrlpts):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        ctrlpts_v = self.ctrlpts_v
+        v_0 = ctrlpts_v[..., 0]
+        v_1 = ctrlpts_v[..., 1]
+        v_2 = ctrlpts_v[..., 2]
+        self.v_01 = v_0 @ v_1
+        self.v_12 = v_1 @ v_2
+        self.v_20 = v_2 @ v_0
+        self.v_012 = np.linalg.det(ctrlpts_v)
+        self.c = self.v_12
+        self.c2 = self.c**2
+        self.s2 = 1 - self.c2
+        self.s = sqrt(self.s2)
+        self.w = np.arccos(self.c)
+        cBC = np.cross(v_1, v_2)
+        cBC /= np.linalg.norm(cBC)
+        self.vD = cBC
+        self.vCxD = np.cross(v_2, self.vD)
+        beta1 = np.arctan2(self.v_012, ( v_0@v_2 - (v_1 @ v_0)*(v_1 @ v_2)))
+        beta2 = np.arctan2(self.v_012, (v_0@v_1 - (v_2 @ v_0)*(v_1 @ v_2)))
+        gamma = np.arctan2(self.v_012, (v_1@v_2 - (v_0 @ v_1)*(v_2 @ v_0)))
+        self.beta1 = beta1#np.where(beta1 < 0, beta1 + np.pi, beta1)
+        self.beta2 = beta2#np.where(beta2 < 0, beta2 + np.pi, beta2)
+        self.gamma = gamma#np.where(gamma < 0, gamma + np.pi, gamma)
+        self.area = self.beta1 + self.beta2 + self.gamma - np.pi
+
+    def transform(self, lon, lat):
+        lon + 0
+        ctrlpts_v = self.ctrlpts_v
+        vC = ctrlpts_v[..., 2]
+        vD = self.vD
+        vCxD = self.vCxD
+        vP = UnitVector.transform(lon, lat)
+        PD = np.arccos(vP @ vD)
+        BC = np.arccos(self.v_12)
+        b = np.pi/2 - PD
+
+        beta1 = self.beta1#ok
+        beta2 = self.beta2#ok
+        gamma = self.gamma#ok
+
+        b = np.pi/2 - PD  # = np.arcsin (vP @ vD)
+        phi1 = np.arcsin(np.clip(np.cos(beta1)/np.cos(b), -1, 1))
+        phi2 = np.arcsin(np.clip(np.cos(beta2)/np.cos(b), -1, 1))
+        f1 = np.arcsin(np.clip(np.tan(b)/np.tan(beta1), -1, 1))
+        f2 = np.arcsin(np.clip(np.tan(b)/np.tan(beta2), -1, 1))
+        d = BC - f1 - f2
+
+        at = self.area
+        nota = gamma - phi1 - phi2 - d * np.sin(b)
+        u = np.sqrt(np.clip(nota/at,0,np.inf))
+
+        psi = np.arctan2(vP @ vCxD, vP @ vC ) # angle PDC
+
+        #psi = np.arccos(np.clip((vP@vC - (vD @ vP)*(vD @ vC))/(
+        #    np.linalg.norm(np.cross(vD, vP))*np.linalg.norm(np.cross(vD,vC))),-1,1))
+        #psi = np.where(psi < 0, psi + np.pi, psi)
+        v = (psi - f2)/d
+        b0 = 1 - u
+        b1 = v*u
+        b2 = 1 - b0 - b1
+        result = np.stack([b0,b1,b2])
+        bresult = self._fix_corners(lon, lat, result)
+        return np.where(np.isfinite(bresult), bresult, 0)
+    
+class TriGnomonic(BarycentricMapProjection):
+
+    def __init__(self, ctrlpts):
+        """Parameters:
+        ctrlpts: 2xn Numpy array, latitude and longitude of each control point
+        """
+        super().__init__(ctrlpts)
+        self.invv = np.linalg.pinv(self.ctrlpts_v)
+
+    def transform(self, lon, lat):
+        lon + 0
+        vtestpt = UnitVector.transform(lon, lat)
+        bary = self.invv @ vtestpt
+        return self.fixbary_normalize(bary)
+
+    def invtransform(self, *args):
+        bary = np.array(args)
+        result = self.ctrlpts_v @ bary
+        return UnitVector.invtransform(normalize(result))    
